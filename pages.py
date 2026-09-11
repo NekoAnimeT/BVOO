@@ -2737,9 +2737,16 @@ body{
 
     <div class="card" style="margin-top:16px">
       <div class="card-title"><i class="ti ti-text-recognition"></i> نام کانفیگ‌ها و خطوط آماری</div>
-      <div class="cl" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><span>متغیرها: <code dir="ltr">{label} {username} {status} {status_emoji} {remain_traffic} {total_traffic} {used_traffic} {remain_time} {remain_days} {protocol} {target} {domain} {cdn} {flag} {sub_name}</code></span></div>
-      <div class="fg"><label>قالب نام کانفیگ (remark)</label><input class="fi" id="remark-template" dir="ltr" placeholder="{status_emoji} {label} · {target}" style="width:100%"></div>
-      <div class="fg" style="margin-top:10px"><label>خطوط آماری (هر خط یک مورد)</label><textarea class="fi" id="info-templates" dir="ltr" style="width:100%;min-height:110px" placeholder="{status_emoji} وضعیت اشتراک: {status}"></textarea></div>
+      <div class="cl" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><span>متغیرها: <code dir="ltr">{label} {username} {status} {status_emoji} {remain_traffic} {total_traffic} {used_traffic} {remain_time} {remain_days} {protocol} {target} {domain} {cdn} {cdn_name} {extra_name} {flag} {sub_name}</code></span></div>
+      <div class="cl" style="margin-bottom:12px;font-size:12px;line-height:1.7">
+        <b>نمونه قالب نام:</b><br>
+        <code dir="ltr">{status_emoji} {label} · {cdn_name} · {target}</code> → 🟢 Me · CDN-NL · 1.2.3.4<br>
+        <code dir="ltr">{flag} {label} - {extra_name} - {target}</code> → 🇳🇱 Plan - CDN Secondary - clean.example.com<br>
+        <code dir="ltr">{label} | {remain_traffic}/{total_traffic} | {remain_days}d</code> → Me | 2.1 GB/10 GB | 12d<br>
+        <b>cdn_name / extra_name:</b> نام نمایشی دامنه کلادفلیر یا دامنه فرعی
+      </div>
+      <div class="fg"><label>قالب نام کانفیگ (remark)</label><input class="fi" id="remark-template" dir="ltr" placeholder="{status_emoji} {label} · {cdn_name} · {target}" style="width:100%"></div>
+      <div class="fg" style="margin-top:10px"><label>خطوط آماری (هر خط یک مورد)</label><textarea class="fi" id="info-templates" dir="ltr" style="width:100%;min-height:110px" placeholder="{status_emoji} وضعیت اشتراک: {status}&#10;👤 کاربر: {username}&#10;📦 باقیمانده: {remain_traffic} از {total_traffic}&#10;⏰ زمان: {remain_time}"></textarea></div>
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px"><input type="checkbox" id="info-configs-enabled" checked> نمایش کانفیگ‌های آماری در ابتدای ساب</label>
       <div style="margin-top:14px"><button class="btn btn-p btn-sm" type="button" onclick="saveRemarkTemplates()"><i class="ti ti-device-floppy"></i> ذخیره قالب‌ها</button></div>
     </div>
@@ -2958,14 +2965,37 @@ async function fetchStats(){
     document.getElementById('bw-pct').textContent=pct+'%';
     document.getElementById('bw-bar').style.width=pct+'%';
     prevTraf=d.total_traffic_mb;
-    if(d.hourly){
-      const labels=Object.keys(d.hourly).sort(),vals=labels.map(k=>+(d.hourly[k]/1024**2).toFixed(2));
-      [ch1,ch3].forEach(c=>{if(!c)return;c.data.labels=labels;c.data.datasets[0].data=vals;c.update()}); try{seedSparks(d.hourly);}catch(e){}
+    {
+      const hourly=d.hourly||{};
+      let labels=Object.keys(hourly);
+      // keep server order (already last 24h) — avoid locale sort breaking timeline
+      if(!labels.length){
+        labels=Array.from({length:12},(_,i)=>String(i*2).padStart(2,'0')+':00');
+      }
+      const vals=labels.map(k=>+((Number(hourly[k]||0)/1024/1024).toFixed(2)));
+      if(ch1){ch1.data.labels=labels;ch1.data.datasets[0].data=vals;ch1.update('none');}
+      if(ch3){
+        const avgVal=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;
+        ch3.data.labels=labels;
+        ch3.data.datasets[0].data=vals;
+        if(ch3.data.datasets[1]) ch3.data.datasets[1].data=vals.map(()=>+avgVal.toFixed(2));
+        ch3.update('none');
+      }
+      try{seedSparks(hourly);}catch(e){}
       const pc=d.protocol_counts||{};
-      if(ch2){ch2.data.labels=['VLESS WS','Trojan WS','XHTTP','Shadowsocks TLS','MTProto'];ch2.data.datasets[0].data=[pc.vless_ws||0,pc.trojan_ws||0,pc.xhttp||0,pc.shadowsocks_tls||0,pc.mtproto||0];
-    try{const s=(ch2.data.datasets[0].data||[]).reduce((a,b)=>a+Number(b||0),0);const el=document.getElementById("donut-total");if(el)el.textContent=toFa?toFa(s):s;}catch(e){}ch2.update();}
+      if(ch2){
+        ch2.data.labels=['VLESS WS','Trojan WS','XHTTP','Shadowsocks TLS','MTProto'];
+        ch2.data.datasets[0].data=[pc.vless_ws||0,pc.trojan_ws||0,pc.xhttp||0,pc.shadowsocks_tls||0,pc.mtproto||0];
+        try{const s=(ch2.data.datasets[0].data||[]).reduce((a,b)=>a+Number(b||0),0);const el=document.getElementById("donut-total");if(el)el.textContent=toFa?toFa(s):s;}catch(e){}
+        ch2.update('none');
+      }
       renderFallbackCharts(labels, vals, pc);
-      if(vals.length){const avg=vals.reduce((a,b)=>a+b,0)/vals.length,peak=Math.max(...vals);const tAvg=document.getElementById('t-avg'),tPeak=document.getElementById('t-peak');if(tAvg)tAvg.innerHTML=avg.toFixed(2)+'<span class="m-unit">MB</span>';if(tPeak)tPeak.innerHTML=peak.toFixed(2)+'<span class="m-unit">MB</span>';}
+      if(vals.length){
+        const avg=vals.reduce((a,b)=>a+b,0)/vals.length,peak=Math.max(...vals,0);
+        const tAvg=document.getElementById('t-avg'),tPeak=document.getElementById('t-peak');
+        if(tAvg)tAvg.innerHTML=avg.toFixed(2)+'<span class="m-unit">MB</span>';
+        if(tPeak)tPeak.innerHTML=peak.toFixed(2)+'<span class="m-unit">MB</span>';
+      }
     }
     renderErrs(d.recent_errors||[]);
   }catch(e){console.error(e)}

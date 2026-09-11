@@ -110,7 +110,39 @@ def get_current_panel_version() -> str:
 
 
 def _state_snapshot() -> dict:
-    return {"links": dict(LINKS), "subs": dict(SUBS), "customers": dict(CUSTOMERS), "settings": dict(SETTINGS), "password_hash": AUTH["password_hash"], "saved_at": datetime.now().isoformat()}
+    return {
+        "links": dict(LINKS),
+        "subs": dict(SUBS),
+        "customers": dict(CUSTOMERS),
+        "settings": dict(SETTINGS),
+        "password_hash": AUTH["password_hash"],
+        "hourly_traffic": dict(hourly_traffic),
+        "stats": {
+            "total_bytes": stats.get("total_bytes", 0),
+            "total_requests": stats.get("total_requests", 0),
+            "total_errors": stats.get("total_errors", 0),
+        },
+        "saved_at": datetime.now().isoformat(),
+    }
+
+
+def _as_bool(v) -> bool:
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, (int, float)):
+        return v != 0
+    if isinstance(v, str):
+        return v.strip().lower() in ("1", "true", "yes", "on", "active", "فعال")
+    return bool(v)
+
+
+def _normalize_active_flags():
+    for link in LINKS.values():
+        if isinstance(link, dict) and "active" in link:
+            link["active"] = _as_bool(link.get("active", True))
+    for sub in SUBS.values():
+        if isinstance(sub, dict) and "active" in sub:
+            sub["active"] = _as_bool(sub.get("active", True))
 
 
 async def load_state():
@@ -134,8 +166,20 @@ async def load_state():
             SETTINGS.setdefault("reality", {"host": "", "port": 443, "pbk": "", "sid": "", "sni": "", "fp": "chrome", "spx": "/"})
             if "password_hash" in data:
                 AUTH["password_hash"] = data["password_hash"]
-            logger.info(f"State loaded from JSON: {len(LINKS)} links, {len(SUBS)} subs")
-    except Exception as e:
+            ht = data.get("hourly_traffic") or {}
+            if isinstance(ht, dict):
+                for k, v in ht.items():
+                    try:
+                        hourly_traffic[str(k)] += int(v or 0)
+                    except Exception:
+                        pass
+            st = data.get("stats") or {}
+            if isinstance(st, dict):
+                stats["total_bytes"] = int(st.get("total_bytes") or stats.get("total_bytes") or 0)
+                stats["total_requests"] = int(st.get("total_requests") or stats.get("total_requests") or 0)
+                stats["total_errors"] = int(st.get("total_errors") or stats.get("total_errors") or 0)
+            _normalize_active_flags()
+            logger.info(f"State loaded from JSON: {len(LINKS)} links, {len(SUBS)} subs")    except Exception as e:
         logger.warning(f"Could not load state: {e}")
 
 async def save_state():
@@ -356,7 +400,7 @@ async def _mtproto_usage_callback(uuid: str, n_bytes: int) -> bool:
             return False
         link["used_bytes"] += n_bytes
         stats["total_bytes"] += n_bytes
-        hourly_traffic[now_ir().strftime("%H:00")] += n_bytes
+        bump_hourly(n_bytes)
     return True
 
 mtproto.set_usage_callback(_mtproto_usage_callback)
@@ -574,6 +618,36 @@ def now_ir() -> datetime:
     return datetime.now(IRAN_TZ)
 
 
+def hourly_bucket_key(dt: datetime | None = None) -> str:
+    dt = dt or now_ir()
+    return dt.strftime("%Y-%m-%d %H:00")
+
+
+def bump_hourly(n: int):
+    try:
+        hourly_traffic[hourly_bucket_key()] += int(n or 0)
+    except Exception:
+        pass
+
+
+def hourly_last_n(hours: int = 24) -> dict:
+    now = now_ir().replace(minute=0, second=0, microsecond=0)
+    out: dict[str, int] = {}
+    for i in range(hours - 1, -1, -1):
+        t = now - timedelta(hours=i)
+        key_new = t.strftime("%Y-%m-%d %H:00")
+        key_old = t.strftime("%H:00")
+        val = int(hourly_traffic.get(key_new, 0) or 0)
+        if val == 0 and t.date() == now.date():
+            val = int(hourly_traffic.get(key_old, 0) or 0)
+        label = t.strftime("%H:00")
+        # if duplicate hour labels, prefix with day
+        if label in out:
+            label = t.strftime("%m/%d %H:00")
+        out[label] = val
+    return out
+
+
 def _uri_authority_host(host: str) -> str:
     host = str(host or "").strip()
     if host.startswith("[") and host.endswith("]"):
@@ -744,6 +818,22 @@ def parse_size_to_bytes(value: float, unit: str) -> int:
     if unit == "KB": return int(value * 1024)
     return int(value)
 
+def _as_bool(val) -> bool:
+    """Normalize JSON/bool/string flags to real bool."""
+    if isinstance(val, bool):
+        return val
+    if val is None:
+        return False
+    if isinstance(val, (int, float)):
+        return val != 0
+    s = str(val).strip().lower()
+    if s in ("1", "true", "yes", "on", "active"):
+        return True
+    if s in ("0", "false", "no", "off", "inactive", ""):
+        return False
+    return bool(val)
+
+
 def is_link_expired(link: dict) -> bool:
     exp = link.get("expires_at")
     if not exp:
@@ -756,23 +846,30 @@ def is_link_expired(link: dict) -> bool:
 def is_link_allowed(link: dict | None) -> bool:
     if link is None:
         return False
-    if not link.get("active", True):
+    if not _as_bool(link.get("active", True)):
         return False
     if is_link_expired(link):
         return False
     lb = link.get("limit_bytes", 0)
-    if lb > 0 and link.get("used_bytes", 0) >= lb:
+    try:
+        lb = int(lb or 0)
+    except Exception:
+        lb = 0
+    used = link.get("used_bytes", 0)
+    try:
+        used = int(used or 0)
+    except Exception:
+        used = 0
+    if lb > 0 and used >= lb:
         return False
-    # اگر به اشتراک وصل است: حذف یا غیرفعال بودن ساب = قطع کانفیگ
+    # ساب والد: فقط اگر واقعاً غیرفعال باشد کانفیگ را قطع کن
+    # ساب حذف‌شده (orphan) نباید مانع فعال‌سازی دستی شود
     sub_id = link.get("sub_id")
     if sub_id:
         sub = SUBS.get(sub_id)
-        if sub is None:
-            return False
-        if sub.get("active", True) is False:
+        if sub is not None and _as_bool(sub.get("active", True)) is False:
             return False
     return True
-
 
 def _fmt_remain_time(link: dict) -> tuple[str, str]:
     """Returns (remain_time_text, remain_days_text)."""
@@ -805,6 +902,8 @@ def build_remark_context(
     domain: str = "",
     sub: dict | None = None,
     cdn: bool = False,
+    cdn_name: str = "",
+    extra_name: str = "",
 ) -> dict:
     label = str(link.get("label") or "کانفیگ")
     username = str(
@@ -825,6 +924,8 @@ def build_remark_context(
     remain_time, remain_days = _fmt_remain_time(link)
     proto = str(link.get("protocol") or DEFAULT_PROTOCOL)
     tgt = target or domain or get_host()
+    extra = str(extra_name or cdn_name or "").strip()
+    cdn_label = extra or (str(domain) if cdn else "")
     return {
         "label": label,
         "username": username,
@@ -838,7 +939,9 @@ def build_remark_context(
         "protocol": proto,
         "target": tgt,
         "domain": domain or tgt,
-        "cdn": "CDN" if cdn else "",
+        "cdn": "CDN" if (cdn or extra) else "",
+        "cdn_name": extra or cdn_label,
+        "extra_name": extra or cdn_label,
         "flag": str(link.get("flag") or ""),
         "sub_name": str((sub or {}).get("name") or ""),
     }
@@ -861,11 +964,15 @@ def format_config_remark(
     domain: str = "",
     sub: dict | None = None,
     cdn: bool = False,
+    cdn_name: str = "",
+    extra_name: str = "",
 ) -> str:
     tmpl = (SETTINGS.get("remark_template") or "{status_emoji} {label} · {target}").strip()
-    ctx = build_remark_context(link, target=target, domain=domain, sub=sub, cdn=cdn)
+    ctx = build_remark_context(
+        link, target=target, domain=domain, sub=sub, cdn=cdn,
+        cdn_name=cdn_name, extra_name=extra_name,
+    )
     return apply_template(tmpl, ctx)
-
 
 def build_info_config_lines(link: dict, sub: dict | None = None, host: str | None = None) -> list[str]:
     """Display-only share lines (dummy endpoint) for subscription stats."""
@@ -1086,6 +1193,7 @@ async def list_subs(_=Depends(require_auth)):
 async def update_sub(sub_id: str, request: Request, _=Depends(require_auth)):
     body = await request.json()
     deactivated = False
+    reactivated = False
     async with SUBS_LOCK:
         if sub_id not in SUBS:
             raise HTTPException(status_code=404, detail="sub not found")
@@ -1100,19 +1208,23 @@ async def update_sub(sub_id: str, request: Request, _=Depends(require_auth)):
         if "link_ids" in body:
             s["link_ids"] = list(body["link_ids"])
         if "active" in body:
-            s["active"] = bool(body["active"])
+            s["active"] = _as_bool(body["active"])
             deactivated = not s["active"]
+            reactivated = bool(s["active"])
         link_ids = list(s.get("link_ids") or [])
-    # غیرفعال‌سازی اشتراک → کانفیگ‌ها هم قطع شوند
+    # غیرفعال‌سازی اشتراک → کانفیگ‌ها از is_link_allowed قطع می‌شوند
     if deactivated:
+        log_activity("sub", "اشتراک غیرفعال شد؛ کانفیگ‌های وابسته قطع هستند", "warn")
+    # فعال‌سازی مجدد اشتراک → کانفیگ‌های وابسته هم روشن شوند
+    if reactivated:
         async with LINKS_LOCK:
             for lid in link_ids:
                 if lid in LINKS:
-                    LINKS[lid]["active"] = False
+                    LINKS[lid]["active"] = True
             for link in LINKS.values():
                 if link.get("sub_id") == sub_id:
-                    link["active"] = False
-        log_activity("sub", f"اشتراک غیرفعال شد و کانفیگ‌هایش قطع شدند", "warn")
+                    link["active"] = True
+        log_activity("sub", "اشتراک فعال شد و کانفیگ‌هایش روشن شدند", "ok")
     await save_state()
     return {"ok": True, "active": SUBS.get(sub_id, {}).get("active", True)}
 
@@ -1257,7 +1369,7 @@ async def get_stats(_=Depends(require_auth)):
         "total_errors": stats["total_errors"],
         "uptime": uptime(),
         "timestamp": datetime.now().isoformat(),
-        "hourly": dict(hourly_traffic),
+        "hourly": hourly_last_n(24),
         "recent_errors": list(error_logs)[-10:],
         "links_count": len(snap),
         "active_links": sum(1 for l in snap.values() if is_link_allowed(l)),
@@ -1428,7 +1540,11 @@ def _share_lines_for_all_domains(uid: str, link: dict, host: str, sub: dict | No
         clean_ips = cf.get("clean_ips") or []
         targets = clean_ips if clean_ips else [domain]
         for target in targets:
-            remark = format_config_remark(link, target=str(target), domain=domain, sub=sub, cdn=True)
+            cdn_name = str(cf.get("name") or domain)
+            remark = format_config_remark(
+                link, target=str(target), domain=domain, sub=sub, cdn=True,
+                cdn_name=cdn_name, extra_name=cdn_name,
+            )
             lines.append(generate_share_link(uid, target, remark=remark, protocol=proto, sni_host=domain))
     # دامنه‌های فرعی (+ IP/دامنه تمیز مثل کلادفلیر)
     for ed in _extra_domains():
@@ -1437,8 +1553,12 @@ def _share_lines_for_all_domains(uid: str, link: dict, host: str, sub: dict | No
             continue
         clean_ips = ed.get("clean_ips") or []
         targets = clean_ips if clean_ips else [domain]
+        extra_name = str(ed.get("name") or domain)
         for target in targets:
-            remark = format_config_remark(link, target=str(target), domain=domain, sub=sub, cdn=False)
+            remark = format_config_remark(
+                link, target=str(target), domain=domain, sub=sub, cdn=False,
+                cdn_name=extra_name, extra_name=extra_name,
+            )
             lines.append(generate_share_link(uid, target, remark=remark, protocol=proto, sni_host=domain))
     return lines
 
@@ -1529,7 +1649,10 @@ async def cloudflare_subscription(key: str):
         if proto == "mtproto":
             continue
         for target in targets:
-            remark = format_config_remark(link, target=str(target), domain=domain, cdn=True)
+            remark = format_config_remark(
+                link, target=str(target), domain=domain, cdn=True,
+                cdn_name=str(item.get("name") or domain), extra_name=str(item.get("name") or domain),
+            )
             lines.append(generate_share_link(uid, target, remark=remark, protocol=proto, sni_host=domain))
     content=base64.b64encode("\n".join(lines).encode()).decode()
     return Response(content=content, media_type="text/plain", headers={"profile-title": quote(f"OXNET Cloudflare {domain}")})
@@ -1567,7 +1690,10 @@ async def cloudflare_group_subscription(key: str, uuid_key: str, request: Reques
             if proto == "mtproto":
                 continue
             for target in targets:
-                remark=format_config_remark(link, target=str(target), domain=domain, sub=sub, cdn=True)
+                remark=format_config_remark(
+                    link, target=str(target), domain=domain, sub=sub, cdn=True,
+                    cdn_name=str(item.get("name") or domain), extra_name=str(item.get("name") or domain),
+                )
                 lines.append(generate_share_link(lid, target, remark=remark, protocol=proto, sni_host=domain))
         lines = build_sub_info_lines(allowed, sub, get_host()) + lines
     content=base64.b64encode("\n".join(lines).encode()).decode()
@@ -1680,7 +1806,10 @@ async def domain_sub_extra_all(key: str):
         if proto == "mtproto":
             continue
         for target in targets:
-            remark = format_config_remark(link, target=str(target), domain=domain, cdn=False)
+            remark = format_config_remark(
+                link, target=str(target), domain=domain, cdn=False,
+                cdn_name=str(item.get("name") or domain), extra_name=str(item.get("name") or domain),
+            )
             lines.append(generate_share_link(uid, target, remark=remark, protocol=proto, sni_host=domain))
     content = base64.b64encode("\n".join(lines).encode()).decode()
     return Response(content=content, media_type="text/plain", headers={"profile-title": quote(f"OXNET {domain}")})
@@ -1717,7 +1846,10 @@ async def domain_sub_extra_group(key: str, uuid_key: str, request: Request):
             if proto == "mtproto":
                 continue
             for target in targets:
-                remark = format_config_remark(link, target=str(target), domain=domain, sub=sub, cdn=False)
+                remark = format_config_remark(
+                    link, target=str(target), domain=domain, sub=sub, cdn=False,
+                    cdn_name=str(item.get("name") or domain), extra_name=str(item.get("name") or domain),
+                )
                 lines.append(generate_share_link(lid, target, remark=remark, protocol=proto, sni_host=domain))
         lines = build_sub_info_lines(allowed, sub, get_host()) + lines
     content = base64.b64encode("\n".join(lines).encode()).decode()
@@ -1918,11 +2050,13 @@ async def list_links(_=Depends(require_auth)):
             "uuid": uid,
             **d,
             "protocol": proto,
+            "active": _as_bool(d.get("active", True)),
+            "allowed": is_link_allowed(d),
             "expired": is_link_expired(d),
             "vless_link": generate_share_link(uid, host, remark=f"OXNET-{d['label']}", protocol=proto),
             "sub_url": f"https://{host}/sub/{d.get('path') or uid}",
         })
-    result.sort(key=lambda x: x["created_at"], reverse=True)
+    result.sort(key=lambda x: x.get("created_at") or "", reverse=True)
     return {"links": result}
 
 @app.patch("/api/links/{uid}")
@@ -1930,22 +2064,32 @@ async def update_link(uid: str, request: Request, _=Depends(require_auth)):
     body = await request.json()
     mtproto_action = None
     new_sub = "UNCHANGED"
+    resolved = await resolve_link_id(uid) or uid
+    reactivate_sub_id = None
 
     async with LINKS_LOCK:
-        if uid not in LINKS:
+        if resolved not in LINKS:
             raise HTTPException(status_code=404, detail="link not found")
+        uid = resolved
         link = LINKS[uid]
         old_sub = link.get("sub_id")
         label = link.get("label")
 
         if "active" in body:
-            new_active = bool(body["active"])
-            changed = new_active != link.get("active", True)
-            link["active"] = new_active
+            new_active = _as_bool(body["active"])
+            changed = new_active != _as_bool(link.get("active", True))
+            link["active"] = bool(new_active)
             log_activity("link", f"کانفیگ «{label}» {'فعال' if new_active else 'غیرفعال'} شد", "ok" if new_active else "warn")
+            # اگر لینک فعال شد ولی ساب والد غیرفعال است → ساب را هم روشن کن
+            if new_active and link.get("sub_id"):
+                sid = link.get("sub_id")
+                if sid in SUBS:
+                    reactivate_sub_id = sid
+                else:
+                    # ساب حذف شده — وابستگی را قطع کن تا کانفیگ دوباره کار کند
+                    link["sub_id"] = None
             if changed and link.get("protocol") == "mtproto":
                 mtproto_action = ("start" if new_active else "stop", dict(link))
-
         if "label" in body:
             link["label"] = str(body["label"])[:60]
         if "note" in body:
@@ -1976,6 +2120,12 @@ async def update_link(uid: str, request: Request, _=Depends(require_auth)):
                 ids = SUBS[new_sub].setdefault("link_ids", [])
                 if uid not in ids:
                     ids.append(uid)
+
+    # فعال‌سازی دستی کانفیگ → ساب والد هم فعال شود تا is_link_allowed قطع نکند
+    if reactivate_sub_id:
+        async with SUBS_LOCK:
+            if reactivate_sub_id in SUBS:
+                SUBS[reactivate_sub_id]["active"] = True
 
     if mtproto_action:
         action, snap = mtproto_action
@@ -2107,7 +2257,7 @@ async def http_proxy(target_url: str, request: Request):
         resp = await http_client.request(method=request.method, url=target_url, headers=headers, content=body)
         stats["total_bytes"] += len(resp.content)
         stats["total_requests"] += 1
-        hourly_traffic[now_ir().strftime("%H:00")] += len(resp.content)
+        bump_hourly(len(resp.content))
         return Response(content=resp.content, status_code=resp.status_code,
                         headers={k: v for k, v in resp.headers.items() if k.lower() not in _HOP})
     except Exception as exc:
@@ -2210,7 +2360,13 @@ async def api_settings(_=Depends(require_auth)):
         "data_persistent": str(DATA_DIR) in ("/data",) or str(DATA_DIR).startswith("/data/") or bool(os.environ.get("DATA_DIR")),
         "remark_vars": [
             "label", "username", "status", "status_emoji", "remain_traffic", "total_traffic",
-            "used_traffic", "remain_time", "remain_days", "protocol", "target", "domain", "cdn", "flag", "sub_name",
+            "used_traffic", "remain_time", "remain_days", "protocol", "target", "domain",
+            "cdn", "cdn_name", "extra_name", "flag", "sub_name",
+        ],
+        "remark_examples": [
+            "{status_emoji} {label} · {cdn_name} · {target}",
+            "{flag} {label} - {extra_name} - {target}",
+            "{label} | {remain_traffic}/{total_traffic} | {remain_days}d",
         ],
     }
 
