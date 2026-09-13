@@ -9,157 +9,128 @@ LOGIN_HTML = r"""<!DOCTYPE html>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ورود · OXNET</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --font:"Vazirmatn",system-ui,-apple-system,sans-serif;
-  --bg:#F1F5F9; --card:#FFFFFF; --ink:#0F172A; --muted:#64748B; --line:#E2E8F0;
-  --accent:#2563EB; --accent2:#1D4ED8; --soft:rgba(37,99,235,.1);
-  --err:#DC2626; --err-bg:#FEF2F2; --r:16px; --t:.2s ease;
+  --font:"Vazirmatn",system-ui,sans-serif;
+  --ink:#0B1220; --muted:#64748B; --line:#E2E8F0; --card:#FFFFFF;
+  --accent:#4F46E5; --accent2:#4338CA;
 }
 html[data-theme="dark"]{
-  --bg:#020617; --card:#0F172A; --ink:#F8FAFC; --muted:#94A3B8; --line:#1E293B;
-  --accent:#3B82F6; --accent2:#60A5FA; --soft:rgba(59,130,246,.14);
-  --err:#F87171; --err-bg:rgba(239,68,68,.12);
+  --ink:#F8FAFC; --muted:#94A3B8; --line:#1E293B; --card:#0F172A;
+  --accent:#818CF8; --accent2:#6366F1;
 }
 html,body{height:100%}
 body{
-  font-family:var(--font);color:var(--ink);min-height:100vh;display:flex;
-  background:
-    radial-gradient(900px 500px at 10% -10%,rgba(37,99,235,.14),transparent 55%),
-    radial-gradient(700px 400px at 100% 100%,rgba(14,165,233,.08),transparent 50%),
-    linear-gradient(180deg,var(--bg),#E2E8F0);
+  min-height:100vh;font-family:var(--font);color:var(--ink);
+  display:grid;place-items:center;padding:24px;
+  background:#070B14;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(79,70,229,.45), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 80%, rgba(14,165,233,.22), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(15,23,42,.9), #070B14 70%);
   -webkit-font-smoothing:antialiased;
 }
-html[data-theme="dark"] body{
-  background:
-    radial-gradient(900px 500px at 10% -10%,rgba(37,99,235,.22),transparent 55%),
-    radial-gradient(700px 400px at 100% 100%,rgba(56,189,248,.08),transparent 50%),
-    linear-gradient(180deg,#020617,#0B1220);
-}
-.shell{display:grid;grid-template-columns:1.1fr .9fr;width:100%;min-height:100vh}
-@media(max-width:900px){.shell{grid-template-columns:1fr}.brand{display:none!important}}
-.brand{
-  position:relative;overflow:hidden;padding:48px 52px;display:flex;flex-direction:column;justify-content:space-between;
-  background:linear-gradient(160deg,#0B1220 0%,#12204a 45%,#1D4ED8 130%);color:#F8FAFC;
-}
-.brand::before{
-  content:"";position:absolute;inset:0;
+.bg-grid{
+  position:fixed;inset:0;pointer-events:none;opacity:.35;
   background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);
-  background-size:48px 48px;mask-image:linear-gradient(180deg,#000,transparent 90%);pointer-events:none;
+  background-size:56px 56px;
+  mask-image:radial-gradient(circle at center, #000 20%, transparent 75%);
 }
-.brand::after{
-  content:"";position:absolute;width:480px;height:480px;border-radius:50%;
-  background:radial-gradient(circle,rgba(96,165,250,.35),transparent 65%);
-  top:-120px;left:-100px;pointer-events:none;
+.wrap{position:relative;z-index:1;width:100%;max-width:440px}
+.top-brand{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:28px}
+.mark{
+  width:44px;height:44px;border-radius:14px;display:grid;place-items:center;color:#fff;font-size:20px;
+  background:linear-gradient(145deg,#6366F1,#4F46E5);box-shadow:0 12px 30px rgba(79,70,229,.45);
 }
-.brand-inner{position:relative;z-index:1}
-.logo{display:flex;align-items:center;gap:14px;margin-bottom:56px}
-.logo-mark{
-  width:52px;height:52px;border-radius:14px;display:grid;place-items:center;
-  background:linear-gradient(145deg,#3B82F6,#1D4ED8);font-size:24px;
-  box-shadow:0 12px 28px rgba(37,99,235,.4);border:1px solid rgba(255,255,255,.12);
-}
-.logo-name{font-size:22px;font-weight:700;letter-spacing:-.03em}
-.logo-ver{font-size:12px;color:#94A3B8;margin-top:2px;font-weight:500}
-.h1{font-size:34px;font-weight:700;letter-spacing:-.035em;line-height:1.35;max-width:400px;margin-bottom:16px}
-.desc{font-size:15px;color:#CBD5E1;line-height:1.85;max-width:380px}
-.feats{list-style:none;margin-top:36px;display:grid;gap:14px}
-.feats li{
-  display:flex;align-items:center;gap:12px;font-size:14px;color:#E2E8F0;font-weight:500;
-  padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);
-  backdrop-filter:blur(8px);max-width:360px;
-}
-.feats i{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:rgba(59,130,246,.2);color:#93C5FD;font-size:15px}
-.foot{position:relative;z-index:1;font-size:12px;color:#94A3B8;display:flex;align-items:center;gap:8px}
-.foot span{width:6px;height:6px;border-radius:50%;background:#22C55E;box-shadow:0 0 0 4px rgba(34,197,94,.15)}
-.form-wrap{display:grid;place-items:center;padding:32px 24px}
+.brand-txt{text-align:right}
+.brand-txt b{display:block;color:#F8FAFC;font-size:18px;font-weight:800;letter-spacing:-.03em}
+.brand-txt span{display:block;color:#94A3B8;font-size:12px;margin-top:2px}
 .card{
-  width:100%;max-width:420px;background:var(--card);border:1px solid var(--line);
-  border-radius:20px;padding:36px 32px;box-shadow:0 20px 50px rgba(15,23,42,.08);
-  position:relative;overflow:hidden;
+  background:rgba(15,23,42,.72);border:1px solid rgba(148,163,184,.16);
+  border-radius:24px;padding:36px 32px 28px;backdrop-filter:blur(18px);
+  box-shadow:0 30px 80px rgba(0,0,0,.45);
 }
-.card::before{content:"";position:absolute;top:0;right:0;left:0;height:3px;background:linear-gradient(90deg,#2563EB,#38BDF8)}
-.card h1{font-size:24px;font-weight:700;letter-spacing:-.03em;margin-bottom:8px}
-.sub{font-size:14px;color:var(--muted);margin-bottom:28px;line-height:1.7}
-label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:8px}
-.inp{position:relative}
-.inp i{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:17px;pointer-events:none}
+.card h1{color:#F8FAFC;font-size:26px;font-weight:800;letter-spacing:-.03em;margin-bottom:8px}
+.card p.lead{color:#94A3B8;font-size:14px;line-height:1.75;margin-bottom:26px}
+label{display:block;color:#CBD5E1;font-size:12.5px;font-weight:600;margin-bottom:8px}
+.field{position:relative;margin-bottom:6px}
+.field i{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#64748B;font-size:17px}
 input{
-  width:100%;height:50px;border-radius:12px;border:1px solid var(--line);background:var(--bg);
-  padding:0 44px 0 16px;font:inherit;font-size:14.5px;color:var(--ink);outline:none;
-  transition:border-color var(--t),box-shadow var(--t),background var(--t);
+  width:100%;height:52px;border-radius:14px;border:1px solid rgba(148,163,184,.2);
+  background:rgba(2,6,23,.55);color:#F8FAFC;padding:0 46px 0 16px;
+  font:inherit;font-size:15px;outline:none;transition:.2s ease;
 }
-input:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--soft);background:var(--card)}
+input:focus{border-color:#6366F1;box-shadow:0 0 0 4px rgba(99,102,241,.2);background:rgba(2,6,23,.75)}
+input::placeholder{color:#64748B}
 .btn{
-  width:100%;height:50px;margin-top:18px;border:0;border-radius:12px;cursor:pointer;
-  background:linear-gradient(135deg,#2563EB,#1D4ED8);color:#fff;font:inherit;font-size:15px;font-weight:600;
+  width:100%;height:52px;margin-top:18px;border:0;border-radius:14px;cursor:pointer;
+  background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff;font:inherit;font-size:15px;font-weight:700;
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
-  box-shadow:0 10px 24px rgba(37,99,235,.3);transition:transform var(--t),filter var(--t),box-shadow var(--t);
+  box-shadow:0 14px 34px rgba(79,70,229,.4);transition:.2s ease;
 }
-.btn:hover{filter:brightness(1.05);transform:translateY(-1px);box-shadow:0 14px 28px rgba(37,99,235,.35)}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.06)}
 .btn:disabled{opacity:.65;cursor:not-allowed;transform:none}
-.err{display:none;align-items:center;gap:8px;padding:12px 14px;border-radius:12px;background:var(--err-bg);color:var(--err);font-size:13px;font-weight:500;margin-bottom:16px;border:1px solid rgba(220,38,38,.12)}
+.err{display:none;align-items:center;gap:8px;padding:12px 14px;border-radius:12px;margin-bottom:16px;
+  background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);color:#FCA5A5;font-size:13px;font-weight:500}
 .err.show{display:flex}
-.meta{margin-top:28px;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--muted)}
-.meta b{font-weight:600;color:var(--ink)}
+.stats{
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:22px;
+}
+.stat{
+  text-align:center;padding:12px 8px;border-radius:12px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);
+}
+.stat b{display:block;color:#E2E8F0;font-size:13px;font-weight:700}
+.stat span{display:block;color:#64748B;font-size:11px;margin-top:3px}
+.bottom{margin-top:20px;text-align:center;color:#64748B;font-size:12px}
+.bottom b{color:#94A3B8;font-weight:600}
 @keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:480px){.card{padding:28px 20px}.stats{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<div class="shell">
-  <aside class="brand">
-    <div class="brand-inner">
-      <div class="logo">
-        <div class="logo-mark"><i class="ti ti-network"></i></div>
-        <div>
-          <div class="logo-name">OXNET</div>
-          <div class="logo-ver">Edge Console · v3.4.0</div>
-        </div>
+<div class="bg-grid"></div>
+<div class="wrap">
+  <div class="top-brand">
+    <div class="mark"><i class="ti ti-network"></i></div>
+    <div class="brand-txt"><b>OXNET</b><span>Edge Console · v4.0</span></div>
+  </div>
+  <div class="card">
+    <h1>ورود به کنسول</h1>
+    <p class="lead">دسترسی مدیریت برای مانیتورینگ مسیرها، اشتراک‌ها و مصرف لبه شبکه.</p>
+    <div class="err" id="err"><i class="ti ti-alert-circle"></i><span id="err-text"></span></div>
+    <form id="form">
+      <label for="pw">رمز عبور ادمین</label>
+      <div class="field">
+        <input type="password" id="pw" placeholder="رمز عبور را وارد کنید" autofocus required autocomplete="current-password">
+        <i class="ti ti-lock"></i>
       </div>
-      <div class="h1">مدیریت لبه شبکه با تمرکز روی سرعت و وضوح</div>
-      <p class="desc">مانیتورینگ مصرف، مسیرهای تحویل و اشتراک‌ها در یک پنل یکپارچه — طراحی‌شده برای عملیات روزانه پایدار.</p>
-      <ul class="feats">
-        <li><i class="ti ti-bolt"></i> رله بهینه‌شده برای latency کمتر</li>
-        <li><i class="ti ti-chart-area"></i> داشبورد زنده مصرف و نشست</li>
-        <li><i class="ti ti-shield-check"></i> مسیر ورود امن و قابل تنظیم</li>
-      </ul>
-    </div>
-    <div class="foot"><span></span> سرویس آنلاین · آماده اتصال</div>
-  </aside>
-  <div class="form-wrap">
-    <div class="card">
-      <h1>ورود ادمین</h1>
-      <p class="sub">رمز مدیریت را وارد کنید. دسترسی فقط برای اپراتور مجاز است.</p>
-      <div class="err" id="err"><i class="ti ti-alert-circle"></i><span id="err-text"></span></div>
-      <form id="form">
-        <label for="pw">رمز عبور</label>
-        <div class="inp">
-          <input type="password" id="pw" placeholder="••••••••" autofocus required autocomplete="current-password">
-          <i class="ti ti-lock"></i>
-        </div>
-        <button class="btn" type="submit" id="btn"><i class="ti ti-login-2"></i> ورود به داشبورد</button>
-      </form>
-      <div class="meta"><span>OXNET Edge</span><b>v3.4.0</b></div>
+      <button class="btn" type="submit" id="btn"><i class="ti ti-arrow-narrow-left"></i> ادامه به داشبورد</button>
+    </form>
+    <div class="stats">
+      <div class="stat"><b>Realtime</b><span>مانیتورینگ</span></div>
+      <div class="stat"><b>Multi-Route</b><span>چند مسیر</span></div>
+      <div class="stat"><b>Secure</b><span>ورود محافظت‌شده</span></div>
     </div>
   </div>
+  <div class="bottom">OXNET Edge · <b>v4.0.0</b></div>
 </div>
 <script>
 document.getElementById('form').addEventListener('submit',async e=>{
   e.preventDefault();
   const btn=document.getElementById('btn'),err=document.getElementById('err'),et=document.getElementById('err-text');
   err.classList.remove('show');btn.disabled=true;
-  btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> در حال ورود...';
+  btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> در حال بررسی...';
   try{
     const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('pw').value})});
     if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.detail||'خطا');}
     location.href=(window.OXNET_DASH||'/dashboard');
   }catch(e){
     et.textContent=e.message;err.classList.add('show');
-    btn.disabled=false;btn.innerHTML='<i class="ti ti-login-2"></i> ورود به داشبورد';
+    btn.disabled=false;btn.innerHTML='<i class="ti ti-arrow-narrow-left"></i> ادامه به داشبورد';
   }
 });
 </script>
@@ -171,7 +142,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OXNET · oxnet</title>
+<title>OXNET Console</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
@@ -1890,62 +1861,169 @@ body{
   color:#93C5FD !important;
 }
 
-/* ===== OXNET 3.4 Visual System ===== */
-.main{padding:36px 36px 80px !important}
-.ov-greeting{font-size:28px !important;font-weight:700 !important;letter-spacing:-.04em !important}
-.ov-sub{font-size:14.5px !important;color:var(--t2) !important;max-width:560px !important}
-.qa-grid{gap:14px !important;margin-bottom:28px !important}
+
+/* ===== OXNET 4.0 FULL REDESIGN ===== */
+:root{
+  --bg:#F4F6FB !important;
+  --bg2:#FFFFFF !important;
+  --card:#FFFFFF !important;
+  --card-b:#E6EAF2 !important;
+  --card-bh:#D0D7E5 !important;
+  --accent:#4F46E5 !important;
+  --accent2:#4338CA !important;
+  --accent-d:rgba(79,70,229,.09) !important;
+  --t1:#0B1220 !important;
+  --t2:#5B657A !important;
+  --t3:#94A3B8 !important;
+  --sidebar-w:280px !important;
+  --r-sm:12px !important;
+  --r-md:16px !important;
+  --r-lg:20px !important;
+  --shadow:0 1px 2px rgba(15,23,42,.04) !important;
+  --shadow-md:0 10px 30px rgba(15,23,42,.06) !important;
+}
+[data-theme="dark"]{
+  --bg:#070B14 !important;
+  --bg2:#0C1220 !important;
+  --card:#111827 !important;
+  --card-b:#1E293B !important;
+  --card-bh:#334155 !important;
+  --accent:#818CF8 !important;
+  --accent2:#6366F1 !important;
+  --accent-d:rgba(129,140,248,.12) !important;
+  --t1:#F8FAFC !important;
+  --t2:#94A3B8 !important;
+  --t3:#64748B !important;
+  --shadow:0 1px 2px rgba(0,0,0,.25) !important;
+  --shadow-md:0 12px 32px rgba(0,0,0,.35) !important;
+}
+body{
+  background:
+    radial-gradient(900px 400px at 100% -10%, rgba(79,70,229,.08), transparent 50%),
+    linear-gradient(180deg, var(--bg), #EEF1F8 100%) !important;
+}
+[data-theme="dark"] body{
+  background:
+    radial-gradient(900px 400px at 100% -10%, rgba(99,102,241,.14), transparent 50%),
+    linear-gradient(180deg, #070B14, #0B1220 100%) !important;
+}
+.sidebar{
+  background:var(--bg2) !important;
+  border-left:1px solid var(--card-b) !important;
+  box-shadow:-12px 0 40px rgba(15,23,42,.04) !important;
+}
+.logo{
+  padding:22px 18px !important;
+  border-bottom:1px solid var(--card-b) !important;
+  background:linear-gradient(180deg, rgba(79,70,229,.04), transparent) !important;
+}
+.brand-mark,.brand-mark.small{
+  background:linear-gradient(145deg,#6366F1,#4F46E5) !important;
+  color:#fff !important;
+  border:none !important;
+  box-shadow:0 10px 24px rgba(79,70,229,.35) !important;
+  border-radius:12px !important;
+}
+.logo-name{font-size:15px !important;font-weight:800 !important;letter-spacing:-.03em !important}
+.logo-sub{font-size:11px !important;color:var(--t3) !important}
+.nav-sec{
+  padding:18px 20px 8px !important;
+  font-size:10px !important;letter-spacing:.14em !important;
+  color:var(--t3) !important;font-weight:700 !important;
+}
+.nav-it{
+  margin:3px 12px !important;padding:11px 14px !important;
+  border-radius:12px !important;border-right:0 !important;
+  font-size:13.5px !important;font-weight:500 !important;
+  color:var(--t2) !important;
+}
+.nav-it i{font-size:18px !important;opacity:.9}
+.nav-it:hover{background:#F1F5F9 !important;color:var(--t1) !important}
+[data-theme="dark"] .nav-it:hover{background:#1E293B !important}
+.nav-it.on{
+  background:linear-gradient(90deg, rgba(79,70,229,.12), rgba(79,70,229,.04)) !important;
+  color:#4F46E5 !important;font-weight:700 !important;
+  box-shadow:inset -3px 0 0 #4F46E5 !important;
+}
+[data-theme="dark"] .nav-it.on{color:#A5B4FC !important;box-shadow:inset -3px 0 0 #818CF8 !important}
+.nav-badge{
+  background:rgba(79,70,229,.12) !important;color:#4F46E5 !important;
+  border-radius:999px !important;font-size:10px !important;padding:2px 8px !important;
+}
+.sb-foot{padding:14px 16px 18px !important;border-top:1px solid var(--card-b) !important}
+.theme-btn,.logout-btn{border-radius:12px !important;padding:10px !important;font-weight:600 !important}
+.main{margin-right:var(--sidebar-w) !important;padding:32px 36px 80px !important;max-width:1280px !important}
+.ov-topbar{
+  display:flex !important;align-items:stretch !important;justify-content:space-between !important;
+  gap:16px !important;margin-bottom:24px !important;padding:22px 24px !important;
+  background:linear-gradient(135deg, #111827 0%, #1E1B4B 55%, #312E81 100%) !important;
+  border-radius:20px !important;color:#fff !important;border:1px solid rgba(255,255,255,.06) !important;
+  box-shadow:0 20px 50px rgba(49,46,129,.25) !important;
+}
+.ov-greeting{color:#F8FAFC !important;font-size:26px !important;font-weight:800 !important;letter-spacing:-.03em !important}
+.ov-sub{color:#C7D2FE !important;font-size:13.5px !important;margin-top:6px !important}
+.ov-top-actions .btn-o{
+  background:rgba(255,255,255,.08) !important;border:1px solid rgba(255,255,255,.14) !important;color:#E2E8F0 !important;
+}
+.ov-top-actions .btn-p{
+  background:#fff !important;color:#312E81 !important;box-shadow:none !important;
+}
+.qa-grid{gap:12px !important;margin-bottom:22px !important}
 .qa-item{
-  border-radius:16px !important;padding:20px 12px !important;
-  background:linear-gradient(180deg,var(--card),rgba(248,250,252,.9)) !important;
+  border-radius:16px !important;padding:18px 10px !important;
+  background:var(--card) !important;border:1px solid var(--card-b) !important;
+  box-shadow:var(--shadow) !important;
 }
-[data-theme="dark"] .qa-item{background:linear-gradient(180deg,var(--card),rgba(15,23,42,.9)) !important}
 .qa-item i{
-  width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
-  background:var(--accent-d);font-size:18px !important;
+  width:42px;height:42px;border-radius:14px;display:grid;place-items:center;
+  background:linear-gradient(145deg,rgba(79,70,229,.12),rgba(14,165,233,.08));
+  color:#4F46E5 !important;font-size:18px !important;
 }
-.stat-grid{gap:16px !important;margin-bottom:24px !important}
+.qa-item:hover{transform:translateY(-3px);border-color:rgba(79,70,229,.3) !important;box-shadow:var(--shadow-md) !important}
+.stat-grid{gap:14px !important}
 .stat-card-v2{
-  border-radius:16px !important;padding:20px 22px !important;
-  background:var(--card) !important;
-  box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px rgba(15,23,42,.04) !important;
+  border-radius:18px !important;padding:20px 22px !important;
+  background:var(--card) !important;border:1px solid var(--card-b) !important;
+  box-shadow:var(--shadow-md) !important;
 }
-.stat-v2-num{font-size:32px !important;letter-spacing:-.04em !important}
-.dash-chart-card,.vless-box,.card,.cfg-card,.multi-group-card{
-  border-radius:16px !important;
-  box-shadow:0 1px 2px rgba(15,23,42,.04),0 10px 28px rgba(15,23,42,.04) !important;
+.stat-v2-num{font-size:34px !important;font-weight:800 !important;letter-spacing:-.04em !important;color:var(--t1) !important}
+.stat-v2-label{font-weight:600 !important;color:var(--t2) !important}
+.stat-v2-ic{color:#4F46E5 !important;opacity:.7 !important}
+.dash-chart-card,.card,.cfg-card,.vless-box,.multi-group-card,.traf-chart-card,.traf-main-stat,.traf-mini{
+  border-radius:18px !important;
+  border:1px solid var(--card-b) !important;
+  box-shadow:var(--shadow-md) !important;
 }
 .vless-box{
-  background:linear-gradient(135deg,rgba(37,99,235,.06),var(--card) 45%) !important;
-  border:1px solid rgba(37,99,235,.12) !important;
+  background:linear-gradient(120deg, rgba(79,70,229,.08), var(--card) 40%) !important;
+  border-color:rgba(79,70,229,.15) !important;
 }
-.vl-code{
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace !important;
-  background:var(--bg) !important;border-radius:12px !important;padding:14px 16px !important;
+.vl-code{border-radius:14px !important;background:#0B1220 !important;color:#E2E8F0 !important;border:none !important}
+[data-theme="light"] .vl-code{background:#0F172A !important}
+.btn{border-radius:12px !important;font-weight:600 !important;transition:.2s ease !important}
+.btn-p{background:linear-gradient(135deg,#6366F1,#4F46E5) !important;color:#fff !important;box-shadow:0 10px 24px rgba(79,70,229,.28) !important}
+.btn-p:hover{filter:brightness(1.05);transform:translateY(-1px)}
+.btn-o,.btn-g{border-radius:12px !important}
+.topbar{margin-bottom:24px !important}
+.tb-title{font-size:22px !important;font-weight:800 !important;letter-spacing:-.03em !important}
+.tb-title i{color:#4F46E5 !important}
+.cfg-card{overflow:hidden !important}
+.cfg-card:hover{transform:translateY(-2px);box-shadow:0 16px 40px rgba(15,23,42,.08) !important}
+.modal-v2,.cm-modal{border-radius:20px !important;box-shadow:0 30px 80px rgba(15,23,42,.2) !important}
+.fi,.fs,input[type="text"],input[type="password"],select,textarea{
+  border-radius:12px !important;border:1px solid var(--card-b) !important;
+  background:var(--bg) !important;
 }
-.btn{border-radius:11px !important;font-weight:600 !important;transition:all .2s ease !important}
-.btn-p{box-shadow:0 6px 16px rgba(37,99,235,.25) !important}
-.btn-p:hover{transform:translateY(-1px)}
-.sidebar{backdrop-filter:saturate(1.2)}
-.logo{padding:24px 18px 18px !important}
-.nav-it{border-radius:12px !important;margin:3px 10px !important}
-.topbar{margin-bottom:28px !important}
-.tb-title{font-size:22px !important;letter-spacing:-.03em !important}
-.cfg-card{transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease !important}
-.cfg-card:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(15,23,42,.08) !important}
-.modal-v2,.cm-modal{border-radius:18px !important;box-shadow:0 24px 64px rgba(15,23,42,.18) !important}
-.toast{border-radius:12px !important;backdrop-filter:blur(12px)}
-.proto-chip-v2{transition:all .2s ease !important}
-.info-strip{
-  display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;
+.fi:focus,.fs:focus,input:focus,select:focus,textarea:focus{
+  border-color:#6366F1 !important;box-shadow:0 0 0 3px rgba(99,102,241,.15) !important;
 }
-.info-item{
-  background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:14px 16px;
-  box-shadow:0 1px 2px rgba(15,23,42,.03);
-}
-.info-item-label{display:block;font-size:11px;color:var(--t3);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+.badge.bg-blue{background:rgba(79,70,229,.1) !important;color:#4F46E5 !important}
+.info-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.info-item{background:var(--card);border:1px solid var(--card-b);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow)}
+.info-item-label{display:block;font-size:11px;color:var(--t3);font-weight:700;margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase}
 .info-item-val{font-size:14px;font-weight:700;color:var(--t1)}
-@media(max-width:800px){.info-strip{grid-template-columns:1fr 1fr}}
+@media(max-width:800px){.info-strip{grid-template-columns:1fr 1fr}.main{padding:20px 16px 60px !important}}
+
 </style>
 </head>
 <body>
@@ -2317,7 +2395,7 @@ body{
   <button class="sb-close" id="close-sb"><i class="ti ti-x"></i></button>
   <div class="logo">
     <div class="brand-mark small"><i class="ti ti-network"></i></div>
-    <div><div class="logo-name">OXNET</div><div class="logo-sub">Edge Console · v3.4.0</div></div>
+    <div><div class="logo-name">OXNET</div><div class="logo-sub">Console · v4.0.0</div></div>
   </div>
   <div class="nav-wrap">
     <div class="nav-sec">پنل</div>
@@ -2346,7 +2424,7 @@ body{
   <div class="ov-topbar">
     <div>
       <div class="ov-greeting" id="ov-greeting">سلام، خوش آمدید</div>
-      <div class="ov-sub">نمای کلی لبه شبکه، پهنای باند و مسیرهای فعال</div>
+      <div class="ov-sub">کنترل‌سنتر لبه شبکه — مصرف، نشست‌ها و مسیرهای فعال در یک نگاه</div>
     </div>
     <div class="ov-top-actions">
       <button class="btn btn-o btn-sm" onclick="dashRefresh()"><i class="ti ti-refresh"></i> بروزرسانی</button>
@@ -2779,7 +2857,7 @@ body{
       </div>
       <div class="srv-tiles">
         <div class="srv-tile"><div class="srv-tile-icon"><i class="ti ti-route"></i></div><div class="srv-tile-text"><div class="srv-tile-label">پورت</div><div class="srv-tile-val">443 (TLS)</div></div></div>
-        <div class="srv-tile"><div class="srv-tile-icon"><i class="ti ti-versions"></i></div><div class="srv-tile-text"><div class="srv-tile-label">نسخه</div><div class="srv-tile-val">v3.4.0</div></div></div>
+        <div class="srv-tile"><div class="srv-tile-icon"><i class="ti ti-versions"></i></div><div class="srv-tile-text"><div class="srv-tile-label">نسخه</div><div class="srv-tile-val">v4.0.0</div></div></div>
         <div class="srv-tile"><div class="srv-tile-icon"><i class="ti ti-brand-fastapi"></i></div><div class="srv-tile-text"><div class="srv-tile-label">فریم‌ورک</div><div class="srv-tile-val">FastAPI + Uvicorn</div></div></div>
         <div class="srv-tile"><div class="srv-tile-icon"><i class="ti ti-cloud"></i></div><div class="srv-tile-text"><div class="srv-tile-label">پلتفرم</div><div class="srv-tile-val">Railway</div></div></div>
         <div class="srv-tile" style="grid-column:1/-1"><div class="srv-tile-icon"><i class="ti ti-device-floppy"></i></div><div class="srv-tile-text"><div class="srv-tile-label">ذخیره‌سازی</div><div class="srv-tile-val"><span id="storage-mode-label">JSON File</span></div></div></div>
