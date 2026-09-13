@@ -179,8 +179,7 @@ async def load_state():
                 stats["total_requests"] = int(st.get("total_requests") or stats.get("total_requests") or 0)
                 stats["total_errors"] = int(st.get("total_errors") or stats.get("total_errors") or 0)
             _normalize_active_flags()
-            logger.info(f"State loaded from JSON: {len(LINKS)} links, {len(SUBS)} subs")
-    except Exception as e:
+            logger.info(f"State loaded from JSON: {len(LINKS)} links, {len(SUBS)} subs")    except Exception as e:
         logger.warning(f"Could not load state: {e}")
 
 async def save_state():
