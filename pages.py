@@ -7,7 +7,7 @@ LOGIN_HTML = r"""<!DOCTYPE html>
 <head>
 <script>(function(){try{var t=localStorage.getItem("oxnet-theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ورود · OXNET Edge</title>
+<title>ورود · OXNET</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -15,142 +15,135 @@ LOGIN_HTML = r"""<!DOCTYPE html>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --font:"Vazirmatn",system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;
-  --bg:#F8FAFC; --bg2:#EEF2F7; --card:#FFFFFF;
-  --ink:#111827; --muted:#6B7280; --line:#E5E7EB;
-  --accent:#2563EB; --accent-hover:#1D4ED8; --accent-soft:rgba(37,99,235,.08);
-  --ok:#16A34A; --err:#DC2626; --err-bg:rgba(220,38,38,.08);
-  --r-sm:10px; --r-md:14px; --r-lg:18px;
-  --shadow:0 8px 20px rgba(15,23,42,.05);
-  --t:200ms ease;
-}
-@media (prefers-color-scheme: dark){
-  :root{
-    --bg:#0B1220; --bg2:#111827; --card:#111827;
-    --ink:#F8FAFC; --muted:#CBD5E1; --line:#334155;
-    --accent:#3B82F6; --accent-hover:#60A5FA; --accent-soft:rgba(59,130,246,.12);
-    --ok:#22C55E; --err:#EF4444; --err-bg:rgba(239,68,68,.12);
-    --shadow:0 8px 24px rgba(0,0,0,.35);
-  }
-}
-html[data-theme="light"]{
-  --bg:#F8FAFC; --bg2:#EEF2F7; --card:#FFFFFF;
-  --ink:#111827; --muted:#6B7280; --line:#E5E7EB;
-  --accent:#2563EB; --accent-hover:#1D4ED8; --accent-soft:rgba(37,99,235,.08);
-  --ok:#16A34A; --err:#DC2626; --err-bg:rgba(220,38,38,.08);
-  --shadow:0 8px 20px rgba(15,23,42,.05);
+  --font:"Vazirmatn",system-ui,-apple-system,sans-serif;
+  --bg:#F1F5F9; --card:#FFFFFF; --ink:#0F172A; --muted:#64748B; --line:#E2E8F0;
+  --accent:#2563EB; --accent2:#1D4ED8; --soft:rgba(37,99,235,.1);
+  --err:#DC2626; --err-bg:#FEF2F2; --r:16px; --t:.2s ease;
 }
 html[data-theme="dark"]{
-  --bg:#0B1220; --bg2:#111827; --card:#111827;
-  --ink:#F8FAFC; --muted:#CBD5E1; --line:#334155;
-  --accent:#3B82F6; --accent-hover:#60A5FA; --accent-soft:rgba(59,130,246,.12);
-  --ok:#22C55E; --err:#EF4444; --err-bg:rgba(239,68,68,.12);
-  --shadow:0 8px 24px rgba(0,0,0,.35);
+  --bg:#020617; --card:#0F172A; --ink:#F8FAFC; --muted:#94A3B8; --line:#1E293B;
+  --accent:#3B82F6; --accent2:#60A5FA; --soft:rgba(59,130,246,.14);
+  --err:#F87171; --err-bg:rgba(239,68,68,.12);
 }
 html,body{height:100%}
 body{
-  font-family:var(--font);color:var(--ink);background:linear-gradient(180deg,var(--bg),var(--bg2));
-  min-height:100vh;display:flex;-webkit-font-smoothing:antialiased;line-height:1.6;font-weight:400;
+  font-family:var(--font);color:var(--ink);min-height:100vh;display:flex;
+  background:
+    radial-gradient(900px 500px at 10% -10%,rgba(37,99,235,.14),transparent 55%),
+    radial-gradient(700px 400px at 100% 100%,rgba(14,165,233,.08),transparent 50%),
+    linear-gradient(180deg,var(--bg),#E2E8F0);
+  -webkit-font-smoothing:antialiased;
 }
-.shell{display:grid;grid-template-columns:1.05fr .95fr;width:100%;min-height:100vh}
-@media(max-width:860px){.shell{grid-template-columns:1fr}.brand-pane{display:none}}
-.brand-pane{
-  background:linear-gradient(165deg,#0F172A 0%,#1E3A8A 100%);
-  color:#F8FAFC;padding:48px;display:flex;flex-direction:column;justify-content:space-between;
+html[data-theme="dark"] body{
+  background:
+    radial-gradient(900px 500px at 10% -10%,rgba(37,99,235,.22),transparent 55%),
+    radial-gradient(700px 400px at 100% 100%,rgba(56,189,248,.08),transparent 50%),
+    linear-gradient(180deg,#020617,#0B1220);
+}
+.shell{display:grid;grid-template-columns:1.1fr .9fr;width:100%;min-height:100vh}
+@media(max-width:900px){.shell{grid-template-columns:1fr}.brand{display:none!important}}
+.brand{
+  position:relative;overflow:hidden;padding:48px 52px;display:flex;flex-direction:column;justify-content:space-between;
+  background:linear-gradient(160deg,#0B1220 0%,#12204a 45%,#1D4ED8 130%);color:#F8FAFC;
+}
+.brand::before{
+  content:"";position:absolute;inset:0;
+  background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);
+  background-size:48px 48px;mask-image:linear-gradient(180deg,#000,transparent 90%);pointer-events:none;
+}
+.brand::after{
+  content:"";position:absolute;width:480px;height:480px;border-radius:50%;
+  background:radial-gradient(circle,rgba(96,165,250,.35),transparent 65%);
+  top:-120px;left:-100px;pointer-events:none;
+}
+.brand-inner{position:relative;z-index:1}
+.logo{display:flex;align-items:center;gap:14px;margin-bottom:56px}
+.logo-mark{
+  width:52px;height:52px;border-radius:14px;display:grid;place-items:center;
+  background:linear-gradient(145deg,#3B82F6,#1D4ED8);font-size:24px;
+  box-shadow:0 12px 28px rgba(37,99,235,.4);border:1px solid rgba(255,255,255,.12);
+}
+.logo-name{font-size:22px;font-weight:700;letter-spacing:-.03em}
+.logo-ver{font-size:12px;color:#94A3B8;margin-top:2px;font-weight:500}
+.h1{font-size:34px;font-weight:700;letter-spacing:-.035em;line-height:1.35;max-width:400px;margin-bottom:16px}
+.desc{font-size:15px;color:#CBD5E1;line-height:1.85;max-width:380px}
+.feats{list-style:none;margin-top:36px;display:grid;gap:14px}
+.feats li{
+  display:flex;align-items:center;gap:12px;font-size:14px;color:#E2E8F0;font-weight:500;
+  padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);
+  backdrop-filter:blur(8px);max-width:360px;
+}
+.feats i{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:rgba(59,130,246,.2);color:#93C5FD;font-size:15px}
+.foot{position:relative;z-index:1;font-size:12px;color:#94A3B8;display:flex;align-items:center;gap:8px}
+.foot span{width:6px;height:6px;border-radius:50%;background:#22C55E;box-shadow:0 0 0 4px rgba(34,197,94,.15)}
+.form-wrap{display:grid;place-items:center;padding:32px 24px}
+.card{
+  width:100%;max-width:420px;background:var(--card);border:1px solid var(--line);
+  border-radius:20px;padding:36px 32px;box-shadow:0 20px 50px rgba(15,23,42,.08);
   position:relative;overflow:hidden;
 }
-.brand-pane::after{
-  content:"";position:absolute;width:420px;height:420px;border-radius:50%;
-  background:rgba(37,99,235,.18);top:-80px;left:-80px;pointer-events:none;
-}
-.brand-top{position:relative;z-index:1}
-.logo-row{display:flex;align-items:center;gap:14px;margin-bottom:48px}
-.logo-mark{
-  width:48px;height:48px;border-radius:var(--r-md);background:#2563EB;color:#fff;
-  display:flex;align-items:center;justify-content:center;font-size:22px;
-  box-shadow:0 8px 20px rgba(37,99,235,.35);
-}
-.logo-name{font-size:22px;font-weight:700;letter-spacing:-.02em}
-.logo-ver{font-size:12px;color:#94A3B8;font-weight:500;margin-top:2px}
-.brand-title{font-size:32px;font-weight:700;letter-spacing:-.03em;line-height:1.3;margin-bottom:14px;max-width:380px}
-.brand-desc{font-size:14.5px;color:#CBD5E1;line-height:1.8;max-width:360px;font-weight:400}
-.brand-foot{position:relative;z-index:1;font-size:12px;color:#94A3B8}
-.form-pane{display:flex;align-items:center;justify-content:center;padding:32px 24px}
-.card{
-  width:100%;max-width:400px;background:var(--card);border:1px solid var(--line);
-  border-radius:var(--r-lg);padding:32px 28px;box-shadow:var(--shadow);
-}
-.card h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin-bottom:8px}
-.sub{font-size:13.5px;color:var(--muted);margin-bottom:28px;line-height:1.7}
+.card::before{content:"";position:absolute;top:0;right:0;left:0;height:3px;background:linear-gradient(90deg,#2563EB,#38BDF8)}
+.card h1{font-size:24px;font-weight:700;letter-spacing:-.03em;margin-bottom:8px}
+.sub{font-size:14px;color:var(--muted);margin-bottom:28px;line-height:1.7}
 label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:8px}
-.inp-wrap{position:relative}
-.inp-wrap .ic{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:16px;pointer-events:none}
+.inp{position:relative}
+.inp i{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:17px;pointer-events:none}
 input{
-  width:100%;height:48px;border-radius:var(--r-md);border:1px solid var(--line);
-  background:var(--card);padding:0 44px 0 16px;font-family:inherit;font-size:14px;color:var(--ink);
-  outline:none;transition:border-color var(--t),box-shadow var(--t),background var(--t);
+  width:100%;height:50px;border-radius:12px;border:1px solid var(--line);background:var(--bg);
+  padding:0 44px 0 16px;font:inherit;font-size:14.5px;color:var(--ink);outline:none;
+  transition:border-color var(--t),box-shadow var(--t),background var(--t);
 }
-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-input::placeholder{color:var(--muted);opacity:.7}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--soft);background:var(--card)}
 .btn{
-  width:100%;height:48px;margin-top:16px;border:none;border-radius:var(--r-md);
-  background:var(--accent);color:#fff;font-family:inherit;font-size:14.5px;font-weight:600;
-  cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;
-  transition:background var(--t),transform var(--t),box-shadow var(--t);
-  box-shadow:0 4px 14px rgba(37,99,235,.28);
+  width:100%;height:50px;margin-top:18px;border:0;border-radius:12px;cursor:pointer;
+  background:linear-gradient(135deg,#2563EB,#1D4ED8);color:#fff;font:inherit;font-size:15px;font-weight:600;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 10px 24px rgba(37,99,235,.3);transition:transform var(--t),filter var(--t),box-shadow var(--t);
 }
-.btn:hover{background:var(--accent-hover);transform:translateY(-1px)}
-.btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
-.err{
-  display:none;align-items:center;gap:8px;padding:10px 12px;border-radius:var(--r-sm);
-  background:var(--err-bg);color:var(--err);font-size:13px;font-weight:500;margin-bottom:16px;
-}
+.btn:hover{filter:brightness(1.05);transform:translateY(-1px);box-shadow:0 14px 28px rgba(37,99,235,.35)}
+.btn:disabled{opacity:.65;cursor:not-allowed;transform:none}
+.err{display:none;align-items:center;gap:8px;padding:12px 14px;border-radius:12px;background:var(--err-bg);color:var(--err);font-size:13px;font-weight:500;margin-bottom:16px;border:1px solid rgba(220,38,38,.12)}
 .err.show{display:flex}
-.footer{margin-top:24px;text-align:center;font-size:12px;color:var(--muted);font-weight:500}
-
-.brand-features{list-style:none;margin-top:28px;display:flex;flex-direction:column;gap:12px;position:relative;z-index:1}
-.brand-features li{display:flex;align-items:center;gap:10px;font-size:13.5px;color:#CBD5E1;font-weight:500}
-.brand-features i{color:#60A5FA;font-size:16px}
+.meta{margin-top:28px;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--muted)}
+.meta b{font-weight:600;color:var(--ink)}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
 <div class="shell">
-  <div class="brand-pane">
-    <div class="brand-top">
-      <div class="logo-row">
+  <aside class="brand">
+    <div class="brand-inner">
+      <div class="logo">
         <div class="logo-mark"><i class="ti ti-network"></i></div>
         <div>
           <div class="logo-name">OXNET</div>
-          <div class="logo-ver">Edge Console · v3.3.0</div>
+          <div class="logo-ver">Edge Console · v3.4.0</div>
         </div>
       </div>
-      <div class="brand-title">کنسول مدیریت لبه شبکه</div>
-      <p class="brand-desc">مدیریت مسیرهای تحویل ترافیک، اشتراک‌ها و مانیتورینگ مصرف — مناسب سرویس‌های CDN و edge delivery.</p>
-      <ul class="brand-features">
-        <li><i class="ti ti-check"></i> چند مسیر انتقال استاندارد</li>
-        <li><i class="ti ti-check"></i> اشتراک و دامنه‌های edge</li>
-        <li><i class="ti ti-check"></i> مانیتورینگ نشست و پهنای باند</li>
+      <div class="h1">مدیریت لبه شبکه با تمرکز روی سرعت و وضوح</div>
+      <p class="desc">مانیتورینگ مصرف، مسیرهای تحویل و اشتراک‌ها در یک پنل یکپارچه — طراحی‌شده برای عملیات روزانه پایدار.</p>
+      <ul class="feats">
+        <li><i class="ti ti-bolt"></i> رله بهینه‌شده برای latency کمتر</li>
+        <li><i class="ti ti-chart-area"></i> داشبورد زنده مصرف و نشست</li>
+        <li><i class="ti ti-shield-check"></i> مسیر ورود امن و قابل تنظیم</li>
       </ul>
     </div>
-    <div class="brand-foot">OXNET Edge Console</div>
-  </div>
-  <div class="form-pane">
+    <div class="foot"><span></span> سرویس آنلاین · آماده اتصال</div>
+  </aside>
+  <div class="form-wrap">
     <div class="card">
-      <h1>ورود به پنل</h1>
-      <p class="sub">رمز عبور مدیریت را وارد کنید تا وارد داشبورد شوید.</p>
+      <h1>ورود ادمین</h1>
+      <p class="sub">رمز مدیریت را وارد کنید. دسترسی فقط برای اپراتور مجاز است.</p>
       <div class="err" id="err"><i class="ti ti-alert-circle"></i><span id="err-text"></span></div>
       <form id="form">
-        <div class="field">
-          <label>رمز عبور</label>
-          <div class="inp-wrap">
-            <input type="password" id="pw" placeholder="رمز عبور را وارد کنید" autofocus required autocomplete="current-password">
-            <i class="ti ti-lock ic"></i>
-          </div>
+        <label for="pw">رمز عبور</label>
+        <div class="inp">
+          <input type="password" id="pw" placeholder="••••••••" autofocus required autocomplete="current-password">
+          <i class="ti ti-lock"></i>
         </div>
         <button class="btn" type="submit" id="btn"><i class="ti ti-login-2"></i> ورود به داشبورد</button>
       </form>
-      <div class="footer">OXNET · 3.3.0</div>
+      <div class="meta"><span>OXNET Edge</span><b>v3.4.0</b></div>
     </div>
   </div>
 </div>
@@ -1896,6 +1889,63 @@ body{
   background:rgba(37,99,235,.15) !important;
   color:#93C5FD !important;
 }
+
+/* ===== OXNET 3.4 Visual System ===== */
+.main{padding:36px 36px 80px !important}
+.ov-greeting{font-size:28px !important;font-weight:700 !important;letter-spacing:-.04em !important}
+.ov-sub{font-size:14.5px !important;color:var(--t2) !important;max-width:560px !important}
+.qa-grid{gap:14px !important;margin-bottom:28px !important}
+.qa-item{
+  border-radius:16px !important;padding:20px 12px !important;
+  background:linear-gradient(180deg,var(--card),rgba(248,250,252,.9)) !important;
+}
+[data-theme="dark"] .qa-item{background:linear-gradient(180deg,var(--card),rgba(15,23,42,.9)) !important}
+.qa-item i{
+  width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
+  background:var(--accent-d);font-size:18px !important;
+}
+.stat-grid{gap:16px !important;margin-bottom:24px !important}
+.stat-card-v2{
+  border-radius:16px !important;padding:20px 22px !important;
+  background:var(--card) !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px rgba(15,23,42,.04) !important;
+}
+.stat-v2-num{font-size:32px !important;letter-spacing:-.04em !important}
+.dash-chart-card,.vless-box,.card,.cfg-card,.multi-group-card{
+  border-radius:16px !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.04),0 10px 28px rgba(15,23,42,.04) !important;
+}
+.vless-box{
+  background:linear-gradient(135deg,rgba(37,99,235,.06),var(--card) 45%) !important;
+  border:1px solid rgba(37,99,235,.12) !important;
+}
+.vl-code{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace !important;
+  background:var(--bg) !important;border-radius:12px !important;padding:14px 16px !important;
+}
+.btn{border-radius:11px !important;font-weight:600 !important;transition:all .2s ease !important}
+.btn-p{box-shadow:0 6px 16px rgba(37,99,235,.25) !important}
+.btn-p:hover{transform:translateY(-1px)}
+.sidebar{backdrop-filter:saturate(1.2)}
+.logo{padding:24px 18px 18px !important}
+.nav-it{border-radius:12px !important;margin:3px 10px !important}
+.topbar{margin-bottom:28px !important}
+.tb-title{font-size:22px !important;letter-spacing:-.03em !important}
+.cfg-card{transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease !important}
+.cfg-card:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(15,23,42,.08) !important}
+.modal-v2,.cm-modal{border-radius:18px !important;box-shadow:0 24px 64px rgba(15,23,42,.18) !important}
+.toast{border-radius:12px !important;backdrop-filter:blur(12px)}
+.proto-chip-v2{transition:all .2s ease !important}
+.info-strip{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;
+}
+.info-item{
+  background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:14px 16px;
+  box-shadow:0 1px 2px rgba(15,23,42,.03);
+}
+.info-item-label{display:block;font-size:11px;color:var(--t3);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+.info-item-val{font-size:14px;font-weight:700;color:var(--t1)}
+@media(max-width:800px){.info-strip{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
@@ -2267,7 +2317,7 @@ body{
   <button class="sb-close" id="close-sb"><i class="ti ti-x"></i></button>
   <div class="logo">
     <div class="brand-mark small"><i class="ti ti-network"></i></div>
-    <div><div class="logo-name">OXNET</div><div class="logo-sub">Edge Console · v3.3.0</div></div>
+    <div><div class="logo-name">OXNET</div><div class="logo-sub">Edge Console · v3.4.0</div></div>
   </div>
   <div class="nav-wrap">
     <div class="nav-sec">پنل</div>
@@ -2729,7 +2779,7 @@ body{
       </div>
       <div class="srv-tiles">
         <div class="srv-tile"><div class="srv-tile-icon"><i class="ti ti-route"></i></div><div class="srv-tile-text"><div class="srv-tile-label">پورت</div><div class="srv-tile-val">443 (TLS)</div></div></div>
-        <div class="srv-tile"><div class="srv-tile-icon"><i class="ti ti-versions"></i></div><div class="srv-tile-text"><div class="srv-tile-label">نسخه</div><div class="srv-tile-val">v3.3.0</div></div></div>
+        <div class="srv-tile"><div class="srv-tile-icon"><i class="ti ti-versions"></i></div><div class="srv-tile-text"><div class="srv-tile-label">نسخه</div><div class="srv-tile-val">v3.4.0</div></div></div>
         <div class="srv-tile"><div class="srv-tile-icon"><i class="ti ti-brand-fastapi"></i></div><div class="srv-tile-text"><div class="srv-tile-label">فریم‌ورک</div><div class="srv-tile-val">FastAPI + Uvicorn</div></div></div>
         <div class="srv-tile"><div class="srv-tile-icon"><i class="ti ti-cloud"></i></div><div class="srv-tile-text"><div class="srv-tile-label">پلتفرم</div><div class="srv-tile-val">Railway</div></div></div>
         <div class="srv-tile" style="grid-column:1/-1"><div class="srv-tile-icon"><i class="ti ti-device-floppy"></i></div><div class="srv-tile-text"><div class="srv-tile-label">ذخیره‌سازی</div><div class="srv-tile-val"><span id="storage-mode-label">JSON File</span></div></div></div>

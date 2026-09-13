@@ -28,7 +28,31 @@ from main import (
 # VLESS Relay — بهینه‌شده برای حداکثر throughput
 # ══════════════════════════════════════════════════════════════════════════════
 
-RELAY_BUF = 256 * 1024   # 256 KB buffer
+RELAY_BUF = 512 * 1024   # 512 KB — throughput بالاتر
+_USAGE_BATCH = 64 * 1024  # قفل فقط هر ۶۴KB یک‌بار (کاهش latency)
+_usage_pending: dict[str, int] = {}
+
+
+def _tune_socket(sock) -> None:
+    """TCP_NODELAY + بافر بزرگ برای پینگ کمتر و سرعت بیشتر."""
+    if not sock:
+        return
+    try:
+        import socket
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 1024)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024 * 1024)
+        except Exception:
+            pass
+        # keepalive سبک
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        except Exception:
+            pass
+    except Exception:
+        pass
+
 
 def _ws_client_ip(ws: WebSocket) -> str:
     fwd = ws.headers.get("x-forwarded-for")
@@ -61,15 +85,31 @@ async def parse_vless_header(chunk: bytes):
     return command, address, port, chunk[pos:]
 
 async def check_and_use(uid: str, n: int) -> bool:
+    """مصرف را batch می‌کند تا قفل مداوم latency نسازد."""
+    # fast reject بدون قفل اگر لینک نیست
+    link = LINKS.get(uid)
+    if link is None:
+        return False
+    if not link.get("active", True):
+        return False
+
+    pending = _usage_pending.get(uid, 0) + int(n or 0)
+    if pending < _USAGE_BATCH:
+        _usage_pending[uid] = pending
+        stats["total_bytes"] += int(n or 0)
+        return True
+
+    # flush batch
     async with LINKS_LOCK:
         link = LINKS.get(uid)
-        if link is None:
+        if link is None or not is_link_allowed(link):
+            _usage_pending.pop(uid, None)
             return False
-        if not is_link_allowed(link):
-            return False
-        link["used_bytes"] += n
-        stats["total_bytes"] += n
-        bump_hourly(n)
+        total = pending
+        _usage_pending[uid] = 0
+        link["used_bytes"] = int(link.get("used_bytes") or 0) + total
+        stats["total_bytes"] += int(n or 0)
+        bump_hourly(total)
     return True
 
 async def relay_ws_to_tcp(ws: WebSocket, writer: asyncio.StreamWriter, conn_id: str, uid: str):
@@ -169,12 +209,9 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
 
         reader, writer = await asyncio.wait_for(
             asyncio.open_connection(address, port),
-            timeout=10.0
+            timeout=8.0
         )
-        sock = writer.transport.get_extra_info('socket')
-        if sock:
-            import socket
-            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        _tune_socket(writer.transport.get_extra_info('socket'))
 
         if payload:
             writer.write(payload)
