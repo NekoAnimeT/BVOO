@@ -1,3 +1,7 @@
+# relay_vless.py
+# بخش VLESS Relay — جدا شده از main.py (منطق اصلی دست‌نخورده)
+# تغییر: ثبت IP واقعی کلاینت (با احتساب هدر x-forwarded-for پشت پراکسی) در connections
+
 import asyncio
 import secrets
 from datetime import datetime
@@ -17,6 +21,7 @@ from main import (
     log_activity,
     now_ir,
     resolve_link_id,
+    bump_hourly,
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -64,7 +69,7 @@ async def check_and_use(uid: str, n: int) -> bool:
             return False
         link["used_bytes"] += n
         stats["total_bytes"] += n
-        hourly_traffic[now_ir().strftime("%H:00")] += n
+        bump_hourly(n)
     return True
 
 async def relay_ws_to_tcp(ws: WebSocket, writer: asyncio.StreamWriter, conn_id: str, uid: str):

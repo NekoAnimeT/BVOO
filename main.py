@@ -179,7 +179,8 @@ async def load_state():
                 stats["total_requests"] = int(st.get("total_requests") or stats.get("total_requests") or 0)
                 stats["total_errors"] = int(st.get("total_errors") or stats.get("total_errors") or 0)
             _normalize_active_flags()
-            logger.info(f"State loaded from JSON: {len(LINKS)} links, {len(SUBS)} subs")    except Exception as e:
+            logger.info(f"State loaded from JSON: {len(LINKS)} links, {len(SUBS)} subs")
+    except Exception as e:
         logger.warning(f"Could not load state: {e}")
 
 async def save_state():
@@ -862,12 +863,21 @@ def is_link_allowed(link: dict | None) -> bool:
         used = 0
     if lb > 0 and used >= lb:
         return False
-    # ساب والد: فقط اگر واقعاً غیرفعال باشد کانفیگ را قطع کن
-    # ساب حذف‌شده (orphan) نباید مانع فعال‌سازی دستی شود
+    # ساب والد / گروه مولتی
     sub_id = link.get("sub_id")
+    multi_id = link.get("multi_group_id")
     if sub_id:
         sub = SUBS.get(sub_id)
-        if sub is not None and _as_bool(sub.get("active", True)) is False:
+        if sub is None:
+            # ساب حذف شده — کانفیگ قطع است تا دستی دوباره فعال نشود بدون پاک‌سازی
+            return False
+        if _as_bool(sub.get("active", True)) is False:
+            return False
+    if multi_id:
+        msub = SUBS.get(multi_id)
+        if msub is None:
+            return False
+        if _as_bool(msub.get("active", True)) is False:
             return False
     return True
 
@@ -1189,11 +1199,50 @@ async def list_subs(_=Depends(require_auth)):
     result.sort(key=lambda x: x["created_at"], reverse=True)
     return {"subs": result}
 
+def _sync_sub_link_ids(sub_id: str, new_ids: list) -> int:
+    """Atomically set membership for one sub without stealing unrelated links.
+    Returns number of links whose membership changed."""
+    new_set = []
+    seen = set()
+    for lid in new_ids or []:
+        lid = str(lid)
+        if lid and lid not in seen:
+            seen.add(lid)
+            new_set.append(lid)
+
+    changed = 0
+    # remove this sub from other subs' lists for ids that move here
+    for other_id, other in SUBS.items():
+        if other_id == sub_id:
+            continue
+        oids = other.get("link_ids") or []
+        keep = [x for x in oids if x not in seen]
+        if len(keep) != len(oids):
+            other["link_ids"] = keep
+            changed += 1
+
+    old_ids = set(SUBS[sub_id].get("link_ids") or [])
+    SUBS[sub_id]["link_ids"] = new_set
+    new_ids_set = set(new_set)
+
+    for lid, link in LINKS.items():
+        if lid in new_ids_set:
+            if link.get("sub_id") != sub_id:
+                link["sub_id"] = sub_id
+                changed += 1
+        elif link.get("sub_id") == sub_id and lid in old_ids and lid not in new_ids_set:
+            # removed from this sub only
+            link["sub_id"] = None
+            changed += 1
+    return changed
+
+
 @app.patch("/api/subs/{sub_id}")
 async def update_sub(sub_id: str, request: Request, _=Depends(require_auth)):
     body = await request.json()
     deactivated = False
     reactivated = False
+    membership_changed = 0
     async with SUBS_LOCK:
         if sub_id not in SUBS:
             raise HTTPException(status_code=404, detail="sub not found")
@@ -1206,27 +1255,39 @@ async def update_sub(sub_id: str, request: Request, _=Depends(require_auth)):
             pw = str(body["password"]).strip()
             s["password_hash"] = hash_password(pw) if pw else None
         if "link_ids" in body:
-            s["link_ids"] = list(body["link_ids"])
+            async with LINKS_LOCK:
+                membership_changed = _sync_sub_link_ids(sub_id, list(body.get("link_ids") or []))
         if "active" in body:
             s["active"] = _as_bool(body["active"])
             deactivated = not s["active"]
             reactivated = bool(s["active"])
         link_ids = list(s.get("link_ids") or [])
-    # غیرفعال‌سازی اشتراک → کانفیگ‌ها از is_link_allowed قطع می‌شوند
+
     if deactivated:
-        log_activity("sub", "اشتراک غیرفعال شد؛ کانفیگ‌های وابسته قطع هستند", "warn")
-    # فعال‌سازی مجدد اشتراک → کانفیگ‌های وابسته هم روشن شوند
+        # قطع سخت: active=False روی همه کانفیگ‌های وابسته
+        async with LINKS_LOCK:
+            for lid in link_ids:
+                if lid in LINKS:
+                    LINKS[lid]["active"] = False
+            for link in LINKS.values():
+                if link.get("sub_id") == sub_id or link.get("multi_group_id") == sub_id:
+                    link["active"] = False
+        log_activity("sub", "اشتراک غیرفعال شد؛ کانفیگ‌های وابسته قطع شدند", "warn")
     if reactivated:
         async with LINKS_LOCK:
             for lid in link_ids:
                 if lid in LINKS:
                     LINKS[lid]["active"] = True
             for link in LINKS.values():
-                if link.get("sub_id") == sub_id:
+                if link.get("sub_id") == sub_id or link.get("multi_group_id") == sub_id:
                     link["active"] = True
         log_activity("sub", "اشتراک فعال شد و کانفیگ‌هایش روشن شدند", "ok")
     await save_state()
-    return {"ok": True, "active": SUBS.get(sub_id, {}).get("active", True)}
+    return {
+        "ok": True,
+        "active": SUBS.get(sub_id, {}).get("active", True),
+        "membership_changed": membership_changed,
+    }
 
 @app.delete("/api/subs/{sub_id}")
 async def delete_sub(sub_id: str, _=Depends(require_auth)):
@@ -1236,19 +1297,24 @@ async def delete_sub(sub_id: str, _=Depends(require_auth)):
         name = SUBS[sub_id].get("name", sub_id)
         link_ids = list(SUBS[sub_id].get("link_ids") or [])
         del SUBS[sub_id]
-    # حذف اشتراک → کانفیگ‌های وابسته غیرفعال (دیگر کار نکنند)
+    # حذف اشتراک → همه کانفیگ‌های وابسته (و فرزندان مولتی) قطع شوند
+    cut = 0
     async with LINKS_LOCK:
-        for lid in link_ids:
-            if lid in LINKS:
-                LINKS[lid]["active"] = False
-                LINKS[lid]["sub_id"] = None
-        for link in LINKS.values():
-            if link.get("sub_id") == sub_id:
+        touched = set(link_ids)
+        for lid, link in list(LINKS.items()):
+            if (
+                lid in touched
+                or link.get("sub_id") == sub_id
+                or link.get("multi_group_id") == sub_id
+            ):
                 link["active"] = False
                 link["sub_id"] = None
+                if link.get("multi_group_id") == sub_id:
+                    link["multi_group_id"] = None
+                cut += 1
     await save_state()
-    log_activity("sub", f"گروه «{name}» حذف شد و کانفیگ‌هایش غیرفعال شدند", "warn")
-    return {"ok": True, "deleted": sub_id, "deactivated_links": len(link_ids)}
+    log_activity("sub", f"گروه «{name}» حذف شد و {cut} کانفیگ قطع شد", "warn")
+    return {"ok": True, "deleted": sub_id, "deactivated_links": cut}
 
 @app.post("/api/subs/{sub_id}/links")
 async def assign_link_to_sub(sub_id: str, request: Request, _=Depends(require_auth)):
@@ -1263,14 +1329,78 @@ async def assign_link_to_sub(sub_id: str, request: Request, _=Depends(require_au
         if action == "add":
             if link_id not in ids:
                 ids.append(link_id)
+            # از بقیه گروه‌ها بیرون بیاید
+            for other_id, other in SUBS.items():
+                if other_id == sub_id:
+                    continue
+                oids = other.get("link_ids") or []
+                if link_id in oids:
+                    other["link_ids"] = [x for x in oids if x != link_id]
         else:
             if link_id in ids:
                 ids.remove(link_id)
     async with LINKS_LOCK:
         if link_id in LINKS:
-            LINKS[link_id]["sub_id"] = sub_id if action == "add" else None
+            if action == "add":
+                LINKS[link_id]["sub_id"] = sub_id
+            elif LINKS[link_id].get("sub_id") == sub_id:
+                LINKS[link_id]["sub_id"] = None
     await save_state()
     return {"ok": True}
+
+
+@app.post("/api/links/cut-orphans")
+async def cut_orphan_links(_=Depends(require_auth)):
+    """قطع کانفیگ‌هایی که هنوز فعال‌اند ولی اشتراک والدشان حذف/نامعتبر است."""
+    cut_ids = []
+    async with SUBS_LOCK:
+        valid_subs = set(SUBS.keys())
+        async with LINKS_LOCK:
+            for lid, link in LINKS.items():
+                sid = link.get("sub_id")
+                mid = link.get("multi_group_id")
+                orphan = False
+                if sid and sid not in valid_subs:
+                    orphan = True
+                if mid and mid not in valid_subs:
+                    orphan = True
+                if orphan:
+                    link["active"] = False
+                    link["sub_id"] = None
+                    if mid and mid not in valid_subs:
+                        link["multi_group_id"] = None
+                    cut_ids.append(lid)
+    await save_state()
+    log_activity("system", f"قطع یتیم‌ها: {len(cut_ids)} کانفیگ", "warn")
+    return {"ok": True, "cut": len(cut_ids), "ids": cut_ids}
+
+
+@app.post("/api/links/cut-inactive-subs")
+async def cut_inactive_sub_links(_=Depends(require_auth)):
+    """قطع همه کانفیگ‌های متصل به اشتراک‌های غیرفعال + یتیم‌ها."""
+    cut_ids = []
+    async with SUBS_LOCK:
+        inactive = {sid for sid, s in SUBS.items() if _as_bool(s.get("active", True)) is False}
+        valid = set(SUBS.keys())
+        async with LINKS_LOCK:
+            for lid, link in LINKS.items():
+                sid = link.get("sub_id")
+                mid = link.get("multi_group_id")
+                should_cut = False
+                if sid and (sid not in valid or sid in inactive):
+                    should_cut = True
+                if mid and (mid not in valid or mid in inactive):
+                    should_cut = True
+                if should_cut and _as_bool(link.get("active", True)):
+                    link["active"] = False
+                    cut_ids.append(lid)
+                if sid and sid not in valid:
+                    link["sub_id"] = None
+                if mid and mid not in valid:
+                    link["multi_group_id"] = None
+    await save_state()
+    log_activity("system", f"قطع کانفیگ‌های اشتراک‌های غیرفعال/حذف‌شده: {len(cut_ids)}", "warn")
+    return {"ok": True, "cut": len(cut_ids), "ids": cut_ids}
 
 # ── Public sub-group subscription file ───────────────────────────────────────
 @app.get("/sub-group/{uuid_key}")

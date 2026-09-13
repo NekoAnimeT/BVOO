@@ -1,5 +1,5 @@
 
-# pages.py  -  OXNET v2.0.10
+# pages.py  -  OXNET v3.3.0
 # شامل: LOGIN_HTML, DASHBOARD_HTML, get_public_page_html()
 
 LOGIN_HTML = r"""<!DOCTYPE html>
@@ -122,7 +122,7 @@ input::placeholder{color:var(--muted);opacity:.7}
         <div class="logo-mark"><i class="ti ti-network"></i></div>
         <div>
           <div class="logo-name">OXNET</div>
-          <div class="logo-ver">Stable · v2.0.11</div>
+          <div class="logo-ver">Edge Console · v3.3.0</div>
         </div>
       </div>
       <div class="brand-title">کنسول مدیریت لبه شبکه</div>
@@ -150,7 +150,7 @@ input::placeholder{color:var(--muted);opacity:.7}
         </div>
         <button class="btn" type="submit" id="btn"><i class="ti ti-login-2"></i> ورود به داشبورد</button>
       </form>
-      <div class="footer">OXNET · 2.0.11</div>
+      <div class="footer">OXNET · 3.3.0</div>
     </div>
   </div>
 </div>
@@ -256,26 +256,31 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   --shadow-lg:0 16px 40px rgba(0,0,0,0.35);
 }
 html,body{height:100%}
-body{font-family:var(--font,"Vazirmatn",system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif);background:var(--bg);color:var(--t1);min-height:100vh;display:flex;font-size:14.5px;line-height:1.65;font-weight:400;letter-spacing:-.01em;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;transition:background .3s,color .3s}
-::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-track{background:var(--bg)}
-::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px}
+body{font-family:var(--font,"Vazirmatn",system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif);background:linear-gradient(180deg,#F8FAFC 0%,#EEF2F7 100%);color:var(--t1);min-height:100vh;display:flex;font-size:14.5px;line-height:1.65;font-weight:400;letter-spacing:-.01em;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;transition:background .3s,color .3s}
+[data-theme="dark"] body{background:linear-gradient(180deg,#0B1220 0%,#0F172A 55%,#111827 100%)}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:99px}
+::-webkit-scrollbar-thumb:hover{background:var(--card-bh)}
 a{color:inherit;text-decoration:none}
-.sidebar{width:var(--sidebar-w);min-height:100vh;background:var(--bg2);border-left:1px solid var(--card-b);display:flex;flex-direction:column;flex-shrink:0;position:fixed;right:0;top:0;bottom:0;z-index:200;transition:transform .25s cubic-bezier(.4,0,.2,1),background .3s,border-color .3s}
-.logo{display:flex;align-items:center;gap:12px;padding:20px 16px 16px;border-bottom:1px solid var(--card-b)}
+.sidebar{width:var(--sidebar-w);min-height:100vh;background:var(--bg2);border-left:1px solid var(--card-b);display:flex;flex-direction:column;flex-shrink:0;position:fixed;right:0;top:0;bottom:0;z-index:200;transition:transform .25s cubic-bezier(.4,0,.2,1),background .3s,border-color .3s;box-shadow:-8px 0 32px rgba(15,23,42,.03)}
+[data-theme="dark"] .sidebar{box-shadow:-8px 0 32px rgba(0,0,0,.25)}
+.logo{display:flex;align-items:center;gap:12px;padding:22px 18px 18px;border-bottom:1px solid var(--card-b)}
 .logo-img{width:38px;height:38px;border-radius:10px;overflow:hidden;border:1px solid var(--card-b);box-shadow:0 0 14px var(--accent-d);flex-shrink:0}
 .logo-img img{width:100%;height:100%;object-fit:cover}
-.brand-mark{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:#0f172a;color:#fff;font-weight:800;letter-spacing:.04em;border:1px solid rgba(15,23,42,.12);box-shadow:0 8px 24px rgba(15,23,42,.12)}
-.brand-mark.small{width:28px;height:28px;border-radius:8px;font-size:10px;flex-shrink:0}
-.logo-name{font-size:13.5px;font-weight:700;color:var(--t1)}
-.logo-sub{font-size:10px;color:var(--t3);margin-top:1px}
+.brand-mark{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#2563EB,#1D4ED8);color:#fff;font-weight:800;letter-spacing:.04em;border:none;box-shadow:0 8px 20px rgba(37,99,235,.28);font-size:16px}
+.brand-mark.small{width:34px;height:34px;border-radius:10px;font-size:14px;flex-shrink:0}
+.logo-name{font-size:14.5px;font-weight:700;color:var(--t1);letter-spacing:-.02em}
+.logo-sub{font-size:10.5px;color:var(--t3);margin-top:2px;font-weight:500}
 .sb-close{display:none;position:absolute;left:12px;top:20px;background:var(--accent-d);border:1px solid var(--card-b);color:var(--t2);width:30px;height:30px;border-radius:8px;font-size:16px;align-items:center;justify-content:center;cursor:pointer}
-.nav-wrap{flex:1;overflow-y:auto;padding:6px 0 8px}
-.nav-sec{padding:14px 14px 4px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);font-weight:700}
-.nav-it{display:flex;align-items:center;gap:9px;padding:9px 14px;color:var(--t3);font-size:12.5px;cursor:pointer;border-right:2px solid transparent;transition:all .15s;margin:1px 6px}
-.nav-it i{font-size:16px;width:18px;text-align:center;flex-shrink:0}
-.nav-it:hover{background:var(--accent-d);color:var(--t2)}
-.nav-it.on{background:var(--accent-d);color:var(--t1);border-right-color:var(--accent);font-weight:600}
+.nav-wrap{flex:1;overflow-y:auto;padding:10px 0 12px}
+.nav-sec{padding:16px 18px 6px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);font-weight:700}
+.nav-it{display:flex;align-items:center;gap:10px;padding:10px 14px;color:var(--t3);font-size:13px;cursor:pointer;border-right:3px solid transparent;transition:background var(--t),color var(--t),border-color var(--t);margin:2px 10px;border-radius:10px}
+.nav-it i{font-size:17px;width:20px;text-align:center;flex-shrink:0;opacity:.85}
+.nav-it:hover{background:#F3F4F6;color:var(--t1)}
+[data-theme="dark"] .nav-it:hover{background:#1E293B;color:var(--t1)}
+.nav-it.on{background:#EFF6FF;color:#1D4ED8;border-right-color:var(--accent);font-weight:600}
+[data-theme="dark"] .nav-it.on{background:rgba(37,99,235,.14);color:#93C5FD}
 .nav-badge{margin-right:auto;background:rgba(37,99,235,0.15);color:var(--accent2);font-size:9px;padding:1px 6px;border-radius:20px;font-weight:700}
 .sb-foot{padding:12px 14px;border-top:1px solid var(--card-b)}
 .tg-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,#0098e6,#0077bb);color:#fff;border-radius:9px;padding:10px;font-size:12.5px;font-weight:600;font-family:inherit;border:none;cursor:pointer;width:100%;transition:.15s}
@@ -293,7 +298,7 @@ a{color:inherit;text-decoration:none}
 .menu-btn,.theme-mob{background:var(--accent-d);border:1px solid var(--card-b);color:var(--t2);width:34px;height:34px;border-radius:8px;font-size:17px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s}
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:190;backdrop-filter:blur(3px)}
 .overlay.show{display:block}
-.main{margin-right:var(--sidebar-w);flex:1;padding:28px 28px 60px;min-width:0;transition:margin .25s}
+.main{margin-right:var(--sidebar-w);flex:1;padding:32px 32px 72px;min-width:0;transition:margin .25s;max-width:1400px}
 .pg{display:none}
 .pg.on{display:block;animation:none!important;opacity:1!important;transform:none!important}
 @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -415,11 +420,11 @@ a{color:inherit;text-decoration:none}
 .form-row{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end}
 .fg{display:flex;flex-direction:column;gap:5px}
 .fg label{font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
-.fi,.fs{padding:9px 12px;border-radius:9px;border:1px solid var(--card-b);background:rgba(0,0,0,.18);color:var(--t1);font-family:inherit;font-size:12px;outline:none;transition:.15s;min-width:100px}
+.fi,.fs{padding:10px 13px;border-radius:var(--r-sm);border:1px solid var(--card-b);background:var(--bg);color:var(--t1);font-family:inherit;font-size:12.5px;outline:none;transition:border-color var(--t),box-shadow var(--t),background var(--t);min-width:100px}
 [data-theme="dark"] .fi,[data-theme="dark"] .fs{background:var(--bg2)!important;color:var(--t1)!important}
 .fi::placeholder{color:var(--t3)}
-.fi:focus,.fs:focus{border-color:rgba(37,99,235,.45);background:rgba(0,0,0,.25);box-shadow:0 0 0 3px rgba(37,99,235,.08)}
-.fs option{background:var(--bg2)}
+.fi:focus,.fs:focus{border-color:var(--accent);background:var(--card);box-shadow:0 0 0 3px var(--accent-d)}
+.fs option{background:var(--card);color:var(--t1)}
 [data-theme="dark"] .fs option{background:var(--bg2)!important;color:var(--t1)!important}
 .cl{background:var(--accent-d);border:1px solid rgba(37,99,235,.12);border-radius:10px;padding:11px 13px;font-size:11px;color:var(--t2);display:flex;gap:9px;align-items:flex-start;line-height:1.8;margin-top:12px}
 .cl i{font-size:15px;color:var(--accent);margin-top:1px;flex-shrink:0}
@@ -1693,6 +1698,10 @@ body{
   background:var(--card) !important;
   border:1px solid var(--card-b) !important;
   border-radius:var(--r-md) !important;
+  box-shadow:var(--shadow) !important;
+}
+.card:hover,.cfg-card:hover,.dash-chart-card:hover,.stat-card-v2:hover{
+  border-color:var(--card-bh) !important;
   box-shadow:var(--shadow-md) !important;
 }
 .badge{border-radius:999px !important;font-weight:600 !important;font-size:11px !important;padding:3px 10px !important}
@@ -1703,51 +1712,61 @@ body{
 
 .fi,.pw-input,.cm-input,.modal-v2-input,input[type="text"],input[type="password"],select,textarea{
   height:46px;border-radius:12px !important;border:1px solid var(--card-b) !important;
-  background:var(--card) !important;color:var(--t1) !important;transition:border-color var(--t),box-shadow var(--t) !important;
+  background:var(--bg) !important;color:var(--t1) !important;transition:border-color var(--t),box-shadow var(--t),background var(--t) !important;
+}
+[data-theme="dark"] .fi,[data-theme="dark"] .pw-input,[data-theme="dark"] .cm-input,
+[data-theme="dark"] .modal-v2-input,[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="password"],[data-theme="dark"] select,[data-theme="dark"] textarea{
+  background:var(--bg2) !important;
 }
 .fi:focus,.pw-input:focus,.cm-input:focus,.modal-v2-input:focus,input:focus,select:focus,textarea:focus{
-  border-color:var(--accent) !important;box-shadow:0 0 0 3px var(--accent-d) !important;outline:none;
+  border-color:var(--accent) !important;box-shadow:0 0 0 3px var(--accent-d) !important;outline:none;background:var(--card) !important;
 }
 ::placeholder{color:#94A3B8 !important}
 
 /* Overview layout */
-.ov-topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
-.ov-greeting{font-size:24px;font-weight:700;color:var(--t1);letter-spacing:-.03em;line-height:1.3}
-.ov-sub{font-size:14px;color:var(--t2);margin-top:4px;font-weight:400}
+.ov-topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap}
+.ov-greeting{font-size:26px;font-weight:700;color:var(--t1);letter-spacing:-.03em;line-height:1.3}
+.ov-sub{font-size:14px;color:var(--t2);margin-top:6px;font-weight:400;max-width:520px}
 .ov-top-actions{display:flex;gap:8px;flex-wrap:wrap}
 
-.qa-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:20px}
+.qa-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:24px}
 @media(max-width:1000px){.qa-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:560px){.qa-grid{grid-template-columns:repeat(2,1fr)}}
 .qa-item{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
-  padding:16px 10px;background:var(--card);border:1px solid var(--card-b);border-radius:var(--r-md);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  padding:18px 12px;background:var(--card);border:1px solid var(--card-b);border-radius:var(--r-md);
   box-shadow:var(--shadow);cursor:pointer;font-family:inherit;color:var(--t1);
   transition:background var(--t),border-color var(--t),transform var(--t),box-shadow var(--t);
 }
-.qa-item i{font-size:20px;color:var(--accent)}
+.qa-item i{font-size:22px;color:var(--accent);opacity:.9}
 .qa-item span{font-size:12.5px;font-weight:600;color:var(--t2)}
-.qa-item:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.qa-item:hover{border-color:rgba(37,99,235,.35);transform:translateY(-2px);box-shadow:var(--shadow-md);background:#F8FAFF}
+[data-theme="dark"] .qa-item:hover{background:rgba(37,99,235,.08)}
 .qa-item:hover span{color:var(--t1)}
+.qa-item:hover i{opacity:1}
 
-.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
 @media(max-width:900px){.stat-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:480px){.stat-grid{grid-template-columns:1fr}}
-.stat-card-v2{padding:16px 18px;transition:border-color var(--t),box-shadow var(--t)}
-.stat-card-v2:hover{border-color:var(--card-bh);box-shadow:var(--shadow-md)}
-.stat-v2-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.stat-v2-label{font-size:12.5px;font-weight:500;color:var(--t2)}
-.stat-v2-ic{font-size:18px;color:var(--t3);opacity:.7}
-.stat-v2-num{font-size:28px;font-weight:700;color:var(--t1);letter-spacing:-.03em;line-height:1.15}
-.stat-v2-foot{margin-top:8px}
+.stat-card-v2{padding:18px 20px;transition:border-color var(--t),box-shadow var(--t),transform var(--t);position:relative;overflow:hidden}
+.stat-card-v2::before{content:"";position:absolute;top:0;right:0;width:3px;height:100%;background:var(--accent);opacity:0;transition:opacity var(--t)}
+.stat-card-v2:hover{border-color:var(--card-bh);box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.stat-card-v2:hover::before{opacity:1}
+.stat-v2-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.stat-v2-label{font-size:12.5px;font-weight:600;color:var(--t2)}
+.stat-v2-ic{font-size:18px;color:var(--t3);opacity:.55}
+.stat-v2-num{font-size:30px;font-weight:700;color:var(--t1);letter-spacing:-.03em;line-height:1.15}
+.stat-v2-foot{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .stat-v2-hint{font-size:12px;color:var(--t3);font-weight:400}
 
-.proto-strip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.proto-strip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
 .proto-chip-v2{
-  display:inline-flex;align-items:center;gap:6px;padding:7px 12px;
+  display:inline-flex;align-items:center;gap:6px;padding:8px 14px;
   background:var(--card);border:1px solid var(--card-b);border-radius:999px;
-  font-size:12.5px;font-weight:600;color:var(--t2);
+  font-size:12.5px;font-weight:600;color:var(--t2);transition:border-color var(--t),background var(--t);
 }
+.proto-chip-v2:hover{border-color:rgba(37,99,235,.3);background:var(--accent-d);color:var(--accent)}
 .proto-chip-v2 i{color:var(--accent);font-size:14px}
 
 .ov-bottom{margin-top:4px;margin-bottom:8px}
@@ -2248,7 +2267,7 @@ body{
   <button class="sb-close" id="close-sb"><i class="ti ti-x"></i></button>
   <div class="logo">
     <div class="brand-mark small"><i class="ti ti-network"></i></div>
-    <div><div class="logo-name">OXNET</div><div class="logo-sub">OXNET Stable · v2.0.10</div></div>
+    <div><div class="logo-name">OXNET</div><div class="logo-sub">Edge Console · v3.3.0</div></div>
   </div>
   <div class="nav-wrap">
     <div class="nav-sec">پنل</div>
@@ -2287,7 +2306,7 @@ body{
 
   <div class="qa-grid">
     <button type="button" class="qa-item" onclick="dashCreateConfig()"><i class="ti ti-plus"></i><span>ساخت کانفیگ</span></button>
-    <button type="button" class="qa-item" onclick="navTo('subs')"><i class="ti ti-folders"></i><span>گروه ساب</span></button>
+    <button type="button" class="qa-item" onclick="navTo('subgroups')"><i class="ti ti-folders"></i><span>گروه ساب</span></button>
     <button type="button" class="qa-item" onclick="navTo('traffic')"><i class="ti ti-chart-area"></i><span>ترافیک</span></button>
     <button type="button" class="qa-item" onclick="navTo('connections')"><i class="ti ti-plug-connected"></i><span>اتصالات</span></button>
     <button type="button" class="qa-item" onclick="navTo('cloudflare')"><i class="ti ti-cloud"></i><span>کلادفلیر</span></button>
@@ -2379,7 +2398,13 @@ body{
 </section>
 <section class="pg" id="pg-links">
   <div class="topbar">
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px">
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-amber" onclick="cutOrphanConfigs()" title="قطع کانفیگ‌هایی که اشتراک‌شان حذف شده">
+        <i class="ti ti-unlink"></i> قطع یتیم‌ها
+      </button>
+      <button class="btn btn-o" onclick="cutInactiveSubConfigs()" title="قطع کانفیگ‌های اشتراک‌های غیرفعال">
+        <i class="ti ti-player-pause"></i> قطع غیرفعال‌ها
+      </button>
       <button class="btn btn-p" onclick="resetCreateModal();openModal('modal-create-link')">
         <i class="ti ti-plus"></i> ساخت کانفیگ جدید
       </button>
@@ -2418,8 +2443,9 @@ body{
 <section class="pg" id="pg-subgroups">
   <div class="topbar">
     <div><div class="tb-title"><i class="ti ti-folders"></i> گروه‌های ساب</div><div class="tb-sub">هر گروه یک صفحه پابلیک مجزا با کانفیگ‌های خودش دارد</div></div>
-    <div class="tb-right">
+    <div class="tb-right" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <span class="badge bg-purple" id="subs-pg-cnt">۰ گروه</span>
+      <button class="btn btn-amber btn-sm" onclick="cutOrphanConfigs()" title="قطع کانفیگ‌های بدون اشتراک معتبر"><i class="ti ti-unlink"></i> قطع یتیم‌ها</button>
       <button class="btn btn-pur" onclick="openModal('modal-create-sub')"><i class="ti ti-folder-plus"></i> گروه جدید</button>
     </div>
   </div>
@@ -2703,7 +2729,7 @@ body{
       </div>
       <div class="srv-tiles">
         <div class="srv-tile"><div class="srv-tile-icon"><i class="ti ti-route"></i></div><div class="srv-tile-text"><div class="srv-tile-label">پورت</div><div class="srv-tile-val">443 (TLS)</div></div></div>
-        <div class="srv-tile"><div class="srv-tile-icon"><i class="ti ti-versions"></i></div><div class="srv-tile-text"><div class="srv-tile-label">نسخه</div><div class="srv-tile-val">v2.0.10</div></div></div>
+        <div class="srv-tile"><div class="srv-tile-icon"><i class="ti ti-versions"></i></div><div class="srv-tile-text"><div class="srv-tile-label">نسخه</div><div class="srv-tile-val">v3.3.0</div></div></div>
         <div class="srv-tile"><div class="srv-tile-icon"><i class="ti ti-brand-fastapi"></i></div><div class="srv-tile-text"><div class="srv-tile-label">فریم‌ورک</div><div class="srv-tile-val">FastAPI + Uvicorn</div></div></div>
         <div class="srv-tile"><div class="srv-tile-icon"><i class="ti ti-cloud"></i></div><div class="srv-tile-text"><div class="srv-tile-label">پلتفرم</div><div class="srv-tile-val">Railway</div></div></div>
         <div class="srv-tile" style="grid-column:1/-1"><div class="srv-tile-icon"><i class="ti ti-device-floppy"></i></div><div class="srv-tile-text"><div class="srv-tile-label">ذخیره‌سازی</div><div class="srv-tile-val"><span id="storage-mode-label">JSON File</span></div></div></div>
@@ -3519,10 +3545,16 @@ async function editSubQuick(sub_id, oldName){
   try{const r=await authF('/api/subs/'+sub_id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});if(!r.ok)throw new Error();toast('ویرایش شد','ok');loadSubs();loadLinks();}catch(e){toast('خطا در ویرایش','err')}
 }
 async function deleteSub(sub_id){
-  if(!confirm('حذف این گروه؟ کانفیگ‌ها حذف نمی‌شوند.'))return;
-  try{const r=await authF('/api/subs/'+sub_id,{method:'DELETE'});if(!r.ok)throw new Error();toast('گروه حذف شد ','ok');loadSubs();loadLinks();}catch(e){toast('خطا','err')}
+  if(!confirm('حذف این گروه؟ کانفیگ‌های وابسته قطع (غیرفعال) می‌شوند.'))return;
+  try{
+    const r=await authF('/api/subs/'+sub_id,{method:'DELETE'});
+    if(!r.ok)throw new Error();
+    const d=await r.json().catch(()=>({}));
+    toast('گروه حذف شد · '+(d.deactivated_links||0)+' کانفیگ قطع شد','ok');
+    loadSubs();loadLinks();
+  }catch(e){toast('خطا','err')}
 }
-let lmodalLinks=[],lmodalInSub=new Set();
+let lmodalLinks=[],lmodalInSub=new Set(),lmodalOrigInSub=new Set();
 async function openSubLinks(sub_id,name){
   currentSubId=sub_id;
   document.getElementById('modal-sub-name').textContent=name;
@@ -3535,13 +3567,21 @@ async function openSubLinks(sub_id,name){
     const {subs=[]}=await sr.json();
     const thisSub=subs.find(s=>s.sub_id===sub_id);
     lmodalInSub=new Set(thisSub?.link_ids||[]);
-    lmodalLinks=links;
-    renderLmodalList(links);
+    lmodalOrigInSub=new Set(thisSub?.link_ids||[]);
+    // فقط کانفیگ‌های همین گروه + آزادها (بدون گروه) — نه دزدی از گروه دیگر
+    lmodalLinks=(links||[]).filter(l=>{
+      if(!l||!l.uuid)return false;
+      if(lmodalInSub.has(l.uuid))return true;
+      if(l.is_multi_child)return false;
+      const sid=l.sub_id;
+      return !sid || sid===sub_id;
+    });
+    renderLmodalList(lmodalLinks);
   }catch(e){toast('خطا در بارگذاری','err')}
 }
 function renderLmodalList(links){
   const body=document.getElementById('modal-links-body');
-  if(!links.length){body.innerHTML='<div class="empty" style="padding:30px"><i class="ti ti-link-off"></i><p>هنوز کانفیگی وجود ندارد</p></div>';updateLmodalCount();return}
+  if(!links.length){body.innerHTML='<div class="empty" style="padding:30px"><i class="ti ti-link-off"></i><p>کانفیگ آزادی برای افزودن نیست</p></div>';updateLmodalCount();return}
   body.innerHTML=links.map(l=>{
     const checked=lmodalInSub.has(l.uuid);
     const on=l.active&&!l.expired;
@@ -3550,7 +3590,7 @@ function renderLmodalList(links){
       <div class="lrow-v2-avatar"><i class="ti ti-key"></i></div>
       <div class="lrow-v2-info">
         <div class="lrow-v2-name">${esc(l.label)}</div>
-        <div class="lrow-v2-meta"><i class="ti ti-database" style="font-size:10px"></i> ${fmtB(l.used_bytes)}</div>
+        <div class="lrow-v2-meta"><i class="ti ti-database" style="font-size:10px"></i> ${fmtB(l.used_bytes)} · ${(PROTO_MAP[l.protocol]||[l.protocol])[0]||l.protocol}</div>
       </div>
       <span class="lrow-v2-status ${on?'on':'off'}">${on?'فعال':'غیرفعال'}</span>
     </div>`;
@@ -3580,15 +3620,33 @@ async function saveSubLinks(){
   if(!currentSubId)return;
   const link_ids=[...lmodalInSub];
   try{
+    // فقط membership همین گروه — دیگر sub_id بقیه را null نمی‌کنیم
     const r=await authF('/api/subs/'+currentSubId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({link_ids})});
     if(!r.ok)throw new Error();
-    await Promise.all(lmodalLinks.map(l=>
-      authF('/api/links/'+l.uuid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({sub_id:lmodalInSub.has(l.uuid)?currentSubId:null})})
-    ));
     closeModal('modal-links');
-    toast('کانفیگ‌های گروه ذخیره شدند ','ok');
+    toast('کانفیگ‌های گروه ذخیره شدند','ok');
     loadSubs();loadLinks();
   }catch(e){toast('خطا در ذخیره','err')}
+}
+async function cutOrphanConfigs(){
+  if(!confirm('همه کانفیگ‌هایی که اشتراک‌شان حذف شده یا نامعتبر است قطع شوند؟'))return;
+  try{
+    const r=await authF('/api/links/cut-orphans',{method:'POST'});
+    if(!r.ok)throw new Error();
+    const d=await r.json();
+    toast((d.cut||0)+' کانفیگ یتیم قطع شد','ok');
+    loadLinks();loadSubs();
+  }catch(e){toast('خطا در قطع یتیم‌ها','err')}
+}
+async function cutInactiveSubConfigs(){
+  if(!confirm('کانفیگ‌های متصل به اشتراک‌های غیرفعال/حذف‌شده قطع شوند؟'))return;
+  try{
+    const r=await authF('/api/links/cut-inactive-subs',{method:'POST'});
+    if(!r.ok)throw new Error();
+    const d=await r.json();
+    toast((d.cut||0)+' کانفیگ قطع شد','ok');
+    loadLinks();loadSubs();
+  }catch(e){toast('خطا','err')}
 }
 async function loadSubsPage(){
   document.getElementById('sub-all-url').textContent=location.protocol+'//'+location.host+'/sub-all';
@@ -4469,13 +4527,13 @@ body{
       <div class="brand-mark"><i class="ti ti-network"></i></div>
       <div>
         <div class="brand-name">OXNET</div>
-        <div class="brand-sub">OXNET Stable · v2.0.10</div>
+        <div class="brand-sub">Edge Console · v3.3.0</div>
       </div>
     </div>
     <div class="pill" id="live-pill">در حال بارگذاری</div>
   </div>
   <div id="root"><div class="empty">در حال بارگذاری...</div></div>
-  <div class="foot">OXNET v2.0.10</div>
+  <div class="foot">OXNET v3.3.0</div>
 </div>
 <div class="toast" id="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
