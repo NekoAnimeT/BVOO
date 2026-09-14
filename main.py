@@ -1211,8 +1211,19 @@ async def list_subs(_=Depends(require_auth)):
     result = []
     for sid, s in snap_subs.items():
         link_ids = s.get("link_ids", [])
-        active_count = sum(1 for lid in link_ids if is_link_allowed(snap_links.get(lid)))
-        total_used = sum(snap_links[lid].get("used_bytes", 0) for lid in link_ids if lid in snap_links)
+        active_count = 0
+        total_used = 0
+        for lid in link_ids:
+            lid = str(lid)
+            if _is_remote_link_id(lid):
+                cfg = _resolve_remote_config(lid)
+                if cfg and cfg.get("active"):
+                    active_count += 1
+                continue
+            if is_link_allowed(snap_links.get(lid)):
+                active_count += 1
+            if lid in snap_links:
+                total_used += snap_links[lid].get("used_bytes", 0)
         result.append({
             "sub_id": sid,
             **s,
@@ -1231,14 +1242,93 @@ async def list_subs(_=Depends(require_auth)):
     result.sort(key=lambda x: x["created_at"], reverse=True)
     return {"subs": result}
 
+def _is_remote_link_id(lid: str) -> bool:
+    return str(lid or "").startswith("remote:")
+
+
+def _resolve_remote_config(lid: str) -> dict | None:
+    """remote:{node_id}:{source_id|idx} → dict با uri واقعی نود (بدون ساخت UUID محلی)."""
+    raw = str(lid or "")
+    if not raw.startswith("remote:"):
+        return None
+    parts = raw.split(":", 2)
+    if len(parts) < 3:
+        return None
+    _, node_id, src = parts
+    node = NODES.get(node_id)
+    if not node:
+        return None
+    for idx, cfg in enumerate(node.get("configs") or []):
+        if not isinstance(cfg, dict):
+            continue
+        key = str(cfg.get("source_id") if cfg.get("source_id") not in (None, "") else idx)
+        if key == src:
+            uri = str(cfg.get("uri") or "").strip()
+            if not uri:
+                return None
+            return {
+                "uri": uri,
+                "label": cfg.get("label") or "Node config",
+                "protocol": cfg.get("protocol") or "",
+                "active": _as_bool(cfg.get("active", True)),
+                "node_id": node_id,
+                "node_name": node.get("name") or "Node",
+                "node_region": node.get("region") or "",
+                "source_id": key,
+            }
+    return None
+
+
+def _collect_sub_share_lines(sub: dict, host: str) -> tuple[list[str], list[dict]]:
+    """خطوط share برای یک ساب: لینک‌های محلی + URIهای نود (بدون بازنویسی UUID نود)."""
+    link_ids = list(sub.get("link_ids") or [])
+    allowed_links: list[dict] = []
+    lines: list[str] = []
+    for lid in link_ids:
+        lid = str(lid)
+        if _is_remote_link_id(lid):
+            cfg = _resolve_remote_config(lid)
+            if not cfg or not cfg.get("active"):
+                continue
+            uri = cfg.get("uri") or ""
+            if uri:
+                lines.append(uri)
+                allowed_links.append({
+                    "label": cfg.get("label"),
+                    "used_bytes": 0,
+                    "limit_bytes": 0,
+                    "active": True,
+                    "remote_node": True,
+                })
+            continue
+        link = LINKS.get(lid)
+        if link and is_link_allowed(link):
+            allowed_links.append(link)
+            lines.extend(_share_lines_for_all_domains(lid, link, host, sub=sub))
+    # dedupe while preserving order
+    lines = list(dict.fromkeys(lines))
+    return lines, allowed_links
+
+
 def _sync_sub_link_ids(sub_id: str, new_ids: list) -> int:
     """Atomically set membership for one sub without stealing unrelated links.
+    Supports remote:{node}:{source} ids for node configs on central.
     Returns number of links whose membership changed."""
     new_set = []
     seen = set()
     for lid in new_ids or []:
         lid = str(lid)
-        if lid and lid not in seen:
+        if not lid or lid in seen:
+            continue
+        # فقط idهای معتبر: محلی موجود یا remote قابل resolve
+        if _is_remote_link_id(lid):
+            if _resolve_remote_config(lid) is None and not lid.startswith("remote:"):
+                continue
+            # اجازه ذخیره حتی اگر موقتاً نود آفلاین باشد (uri بعداً resolve می‌شود)
+            seen.add(lid)
+            new_set.append(lid)
+            continue
+        if lid in LINKS:
             seen.add(lid)
             new_set.append(lid)
 
@@ -1449,17 +1539,11 @@ async def sub_group_subscription(uuid_key: str, request: Request):
         if hash_password(pw) != sub["password_hash"]:
             raise HTTPException(status_code=403, detail="wrong password")
     host = get_host()
-    link_ids = sub.get("link_ids", [])
     async with LINKS_LOCK:
-        allowed_links = []
-        lines = []
-        for lid in link_ids:
-            link = LINKS.get(lid)
-            if link and is_link_allowed(link):
-                allowed_links.append(link)
-                lines.extend(_share_lines_for_all_domains(lid, link, host, sub=sub))
-        info = build_sub_info_lines(allowed_links, sub, host)
-        lines = info + lines
+        async with NODES_LOCK:
+            lines, allowed_links = _collect_sub_share_lines(sub, host)
+            info = build_sub_info_lines(allowed_links, sub, host)
+            lines = info + lines
     content = base64.b64encode("\n".join(lines).encode()).decode()
     return Response(
         content=content,
@@ -1841,23 +1925,33 @@ async def cloudflare_group_subscription(key: str, uuid_key: str, request: Reques
     targets=clean_ips if clean_ips else [domain]
     link_ids=sub.get("link_ids", [])
     async with LINKS_LOCK:
-        allowed=[]
-        lines=[]
-        for lid in link_ids:
-            link=LINKS.get(lid)
-            if not link or not is_link_allowed(link):
-                continue
-            allowed.append(link)
-            proto=link.get("protocol", DEFAULT_PROTOCOL)
-            if proto == "mtproto":
-                continue
-            for target in targets:
-                remark=format_config_remark(
-                    link, target=str(target), domain=domain, sub=sub, cdn=True,
-                    cdn_name=str(item.get("name") or domain), extra_name=str(item.get("name") or domain),
-                )
-                lines.append(generate_share_link(lid, target, remark=remark, protocol=proto, sni_host=domain))
-        lines = build_sub_info_lines(allowed, sub, get_host()) + lines
+        async with NODES_LOCK:
+            allowed=[]
+            lines=[]
+            for lid in link_ids:
+                lid=str(lid)
+                if _is_remote_link_id(lid):
+                    cfg=_resolve_remote_config(lid)
+                    if cfg and cfg.get("active") and cfg.get("uri"):
+                        # URI نود دست‌نخورده می‌ماند (host/UUID خود نود)
+                        lines.append(cfg["uri"])
+                        allowed.append({"label": cfg.get("label"), "used_bytes": 0, "limit_bytes": 0, "active": True})
+                    continue
+                link=LINKS.get(lid)
+                if not link or not is_link_allowed(link):
+                    continue
+                allowed.append(link)
+                proto=link.get("protocol", DEFAULT_PROTOCOL)
+                if proto == "mtproto":
+                    continue
+                for target in targets:
+                    remark=format_config_remark(
+                        link, target=str(target), domain=domain, sub=sub, cdn=True,
+                        cdn_name=str(item.get("name") or domain), extra_name=str(item.get("name") or domain),
+                    )
+                    lines.append(generate_share_link(lid, target, remark=remark, protocol=proto, sni_host=domain))
+            lines = list(dict.fromkeys(lines))
+            lines = build_sub_info_lines(allowed, sub, get_host()) + lines
     content=base64.b64encode("\n".join(lines).encode()).decode()
     return Response(content=content, media_type="text/plain", headers={"profile-title": quote(f"{sub.get('name','OXNET')} Cloudflare {domain}")})
 
@@ -1929,18 +2023,10 @@ async def domain_sub_main(uuid_key: str, request: Request):
         if hash_password(pw) != sub["password_hash"]:
             raise HTTPException(status_code=403, detail="wrong password")
     host = get_host()
-    link_ids = sub.get("link_ids", [])
     async with LINKS_LOCK:
-        allowed = []
-        lines = []
-        for lid in link_ids:
-            link = LINKS.get(lid)
-            if link and is_link_allowed(link):
-                allowed.append(link)
-                proto = link.get("protocol", DEFAULT_PROTOCOL)
-                remark = format_config_remark(link, target=host, domain=host, sub=sub)
-                lines.append(generate_share_link(lid, host, remark=remark, protocol=proto))
-        lines = build_sub_info_lines(allowed, sub, host) + lines
+        async with NODES_LOCK:
+            lines, allowed = _collect_sub_share_lines(sub, host)
+            lines = build_sub_info_lines(allowed, sub, host) + lines
     content = base64.b64encode("\n".join(lines).encode()).decode()
     return Response(content=content, media_type="text/plain", headers={
         "profile-title": quote(f"{sub.get('name','OXNET')} Main"),
@@ -1997,23 +2083,32 @@ async def domain_sub_extra_group(key: str, uuid_key: str, request: Request):
     targets = clean_ips if clean_ips else [domain]
     link_ids = sub.get("link_ids", [])
     async with LINKS_LOCK:
-        allowed = []
-        lines = []
-        for lid in link_ids:
-            link = LINKS.get(lid)
-            if not link or not is_link_allowed(link):
-                continue
-            allowed.append(link)
-            proto = link.get("protocol", DEFAULT_PROTOCOL)
-            if proto == "mtproto":
-                continue
-            for target in targets:
-                remark = format_config_remark(
-                    link, target=str(target), domain=domain, sub=sub, cdn=False,
-                    cdn_name=str(item.get("name") or domain), extra_name=str(item.get("name") or domain),
-                )
-                lines.append(generate_share_link(lid, target, remark=remark, protocol=proto, sni_host=domain))
-        lines = build_sub_info_lines(allowed, sub, get_host()) + lines
+        async with NODES_LOCK:
+            allowed = []
+            lines = []
+            for lid in link_ids:
+                lid = str(lid)
+                if _is_remote_link_id(lid):
+                    cfg = _resolve_remote_config(lid)
+                    if cfg and cfg.get("active") and cfg.get("uri"):
+                        lines.append(cfg["uri"])
+                        allowed.append({"label": cfg.get("label"), "used_bytes": 0, "limit_bytes": 0, "active": True})
+                    continue
+                link = LINKS.get(lid)
+                if not link or not is_link_allowed(link):
+                    continue
+                allowed.append(link)
+                proto = link.get("protocol", DEFAULT_PROTOCOL)
+                if proto == "mtproto":
+                    continue
+                for target in targets:
+                    remark = format_config_remark(
+                        link, target=str(target), domain=domain, sub=sub, cdn=False,
+                        cdn_name=str(item.get("name") or domain), extra_name=str(item.get("name") or domain),
+                    )
+                    lines.append(generate_share_link(lid, target, remark=remark, protocol=proto, sni_host=domain))
+            lines = list(dict.fromkeys(lines))
+            lines = build_sub_info_lines(allowed, sub, get_host()) + lines
     content = base64.b64encode("\n".join(lines).encode()).decode()
     return Response(content=content, media_type="text/plain", headers={
         "profile-title": quote(f"{sub.get('name','OXNET')} {domain}"),

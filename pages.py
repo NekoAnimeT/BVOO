@@ -3845,9 +3845,10 @@ async function openSubLinks(sub_id,name){
     const thisSub=subs.find(s=>s.sub_id===sub_id);
     lmodalInSub=new Set(thisSub?.link_ids||[]);
     lmodalOrigInSub=new Set(thisSub?.link_ids||[]);
-    // فقط کانفیگ‌های همین گروه + آزادها (بدون گروه) — نه دزدی از گروه دیگر
+    // محلی: همین گروه یا آزاد | نود: همیشه قابل انتخاب روی مرکزی
     lmodalLinks=(links||[]).filter(l=>{
       if(!l||!l.uuid)return false;
+      if(l.remote_node)return true;
       if(lmodalInSub.has(l.uuid))return true;
       if(l.is_multi_child)return false;
       const sid=l.sub_id;
@@ -3862,19 +3863,24 @@ function renderLmodalList(links){
   body.innerHTML=links.map(l=>{
     const checked=lmodalInSub.has(l.uuid);
     const on=l.active&&!l.expired;
-    return `<div class="lrow-v2 ${checked?'checked':''}" data-uuid="${l.uuid}" data-name="${esc(l.label).toLowerCase()}" onclick="toggleLrow('${l.uuid}',this)">
+    const meta=l.remote_node
+      ? `<i class="ti ti-server" style="font-size:10px"></i> ${esc(l.node_name||'Node')} · ${(PROTO_MAP[l.protocol]||[l.protocol])[0]||l.protocol}`
+      : `<i class="ti ti-database" style="font-size:10px"></i> ${fmtB(l.used_bytes)} · ${(PROTO_MAP[l.protocol]||[l.protocol])[0]||l.protocol}`;
+    return `<div class="lrow-v2 ${checked?'checked':''}" data-uuid="${esc(l.uuid)}" data-name="${esc(l.label).toLowerCase()}" onclick="toggleLrow(this)">
       <div class="lrow-v2-check"><i class="ti ti-check"></i></div>
-      <div class="lrow-v2-avatar"><i class="ti ti-key"></i></div>
+      <div class="lrow-v2-avatar"><i class="ti ti-${l.remote_node?'cloud-download':'key'}"></i></div>
       <div class="lrow-v2-info">
-        <div class="lrow-v2-name">${esc(l.label)}</div>
-        <div class="lrow-v2-meta"><i class="ti ti-database" style="font-size:10px"></i> ${fmtB(l.used_bytes)} · ${(PROTO_MAP[l.protocol]||[l.protocol])[0]||l.protocol}</div>
+        <div class="lrow-v2-name">${esc(l.label)}${l.remote_node?' <span class="cfg-sub-tag">نود</span>':''}</div>
+        <div class="lrow-v2-meta">${meta}</div>
       </div>
       <span class="lrow-v2-status ${on?'on':'off'}">${on?'فعال':'غیرفعال'}</span>
     </div>`;
   }).join('');
   updateLmodalCount();
 }
-function toggleLrow(uuid,el){
+function toggleLrow(el){
+  const uuid=el&&el.dataset?el.dataset.uuid:'';
+  if(!uuid)return;
   if(lmodalInSub.has(uuid)){lmodalInSub.delete(uuid);el.classList.remove('checked')}
   else{lmodalInSub.add(uuid);el.classList.add('checked')}
   updateLmodalCount();
