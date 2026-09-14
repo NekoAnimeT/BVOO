@@ -274,6 +274,10 @@ SETTINGS: dict = {
         "node_token": "",       # توکن اختصاصی این نود
         "cluster_secret": "",   # فقط روی مرکزی — برای ثبت نود جدید
         "auto_sync": False,
+        # هنگام ارسال به مرکزی کدام دامنه ساخته شود
+        "sync_main": True,      # دامنه اصلی پنل نود
+        "sync_extra": True,     # دامنه‌های فرعی + IP/دامنه تمیز
+        "sync_cf": False,       # دامنه‌های کلادفلیر نود (اختیاری)
     },
 }
 # نودهای ثبت‌شده روی پنل مرکزی: id -> meta + configs
@@ -2340,6 +2344,8 @@ async def list_links(_=Depends(require_auth)):
                         "node_id": node_id,
                         "node_name": node.get("name") or "Node",
                         "node_region": node.get("region") or "",
+                        "domain_kind": cfg.get("domain_kind") or "",
+                        "target": cfg.get("target") or "",
                         "sync_to_central": True,
                     })
     result.sort(key=lambda x: x.get("created_at") or "", reverse=True)
@@ -3101,6 +3107,9 @@ async def api_cluster_status(_=Depends(require_auth)):
             "has_node_token": bool(c.get("node_token")),
             "has_cluster_secret": bool(c.get("cluster_secret")),
             "auto_sync": bool(c.get("auto_sync")),
+            "sync_main": _as_bool(c.get("sync_main", True)),
+            "sync_extra": _as_bool(c.get("sync_extra", True)),
+            "sync_cf": _as_bool(c.get("sync_cf", False)),
             # secret فقط روی مرکزی و فقط به ادمین لاگین‌شده
             "cluster_secret": c.get("cluster_secret") or "" if role == "central" else "",
             "node_token": c.get("node_token") or "" if role == "node" else "",
@@ -3132,6 +3141,12 @@ async def api_cluster_settings(request: Request, _=Depends(require_auth)):
         c["auto_sync"] = bool(body.get("auto_sync"))
     if "node_token" in body:
         c["node_token"] = str(body.get("node_token") or "").strip()[:120]
+    if "sync_main" in body:
+        c["sync_main"] = _as_bool(body.get("sync_main"))
+    if "sync_extra" in body:
+        c["sync_extra"] = _as_bool(body.get("sync_extra"))
+    if "sync_cf" in body:
+        c["sync_cf"] = _as_bool(body.get("sync_cf"))
     await save_state()
     log_activity("system", f"تنظیمات کلاستر ذخیره شد (role={c.get('role')})", "ok")
     return {"ok": True, "role": c.get("role")}
@@ -3203,7 +3218,7 @@ async def api_cluster_push(request: Request):
     if not isinstance(configs, list):
         raise HTTPException(status_code=400, detail="configs must be a list")
     clean = []
-    for item in configs[:200]:
+    for item in configs[:500]:
         if isinstance(item, str):
             uri = item.strip()
             if uri:
@@ -3213,11 +3228,13 @@ async def api_cluster_push(request: Request):
             if not uri:
                 continue
             clean.append({
-                "label": str(item.get("label") or item.get("name") or "config")[:80],
+                "label": str(item.get("label") or item.get("name") or "config")[:100],
                 "uri": uri[:2000],
                 "protocol": str(item.get("protocol") or "")[:40],
                 "active": bool(item.get("active", True)),
-                "source_id": str(item.get("source_id") or "")[:80],
+                "source_id": str(item.get("source_id") or "")[:160],
+                "domain_kind": str(item.get("domain_kind") or "")[:40],
+                "target": str(item.get("target") or "")[:120],
             })
     nid = node["id"]
     async with NODES_LOCK:
@@ -3306,12 +3323,104 @@ async def api_cluster_connect(request: Request, _=Depends(require_auth)):
     return {"ok": True, "node_token": c["node_token"], "central_url": central}
 
 
+def _node_sync_share_variants(uid: str, link: dict, host: str, c: dict) -> list[dict]:
+    """بر اساس تنظیمات نود: دامنه اصلی / فرعی(+تمیز) / کلادفلیر را برای ارسال به مرکزی بساز."""
+    proto = link.get("protocol") or DEFAULT_PROTOCOL
+    label = link.get("label") or uid[:8]
+    want_main = _as_bool(c.get("sync_main", True))
+    want_extra = _as_bool(c.get("sync_extra", True))
+    want_cf = _as_bool(c.get("sync_cf", False))
+    # اگر هیچ‌کدام روشن نباشد، حداقل دامنه اصلی
+    if not (want_main or want_extra or want_cf):
+        want_main = True
+
+    out: list[dict] = []
+
+    def _add(uri: str, source_id: str, tag: str, target: str):
+        if not uri:
+            return
+        out.append({
+            "label": f"{label} · {tag}" if tag and tag != "main" else label,
+            "uri": uri,
+            "protocol": proto,
+            "active": True,
+            "source_id": source_id,
+            "domain_kind": tag,
+            "target": target,
+        })
+
+    if want_main:
+        try:
+            remark = format_config_remark(link, target=host, domain=host, cdn=False)
+            uri = generate_share_link(uid, host, remark=remark, protocol=proto)
+            _add(uri, f"{uid}:main", "main", host)
+        except Exception:
+            pass
+
+    if want_extra:
+        for ed in _extra_domains():
+            domain = ed.get("domain") or ""
+            if not domain:
+                continue
+            clean_ips = ed.get("clean_ips") or []
+            targets = clean_ips if clean_ips else [domain]
+            extra_name = str(ed.get("name") or domain)
+            slug = ed.get("slug") or _cf_slug(domain)
+            for target in targets:
+                try:
+                    remark = format_config_remark(
+                        link, target=str(target), domain=domain, cdn=False,
+                        cdn_name=extra_name, extra_name=extra_name,
+                    )
+                    uri = generate_share_link(uid, str(target), remark=remark, protocol=proto, sni_host=domain)
+                    sid = f"{uid}:extra:{slug}:{target}"
+                    _add(uri, sid, extra_name, str(target))
+                except Exception:
+                    continue
+
+    if want_cf:
+        for cf in _cf_domains():
+            domain = cf.get("domain") or ""
+            if not domain:
+                continue
+            clean_ips = cf.get("clean_ips") or []
+            targets = clean_ips if clean_ips else [domain]
+            cdn_name = str(cf.get("name") or domain)
+            slug = cf.get("slug") or _cf_slug(domain)
+            for target in targets:
+                try:
+                    remark = format_config_remark(
+                        link, target=str(target), domain=domain, cdn=True,
+                        cdn_name=cdn_name, extra_name=cdn_name,
+                    )
+                    uri = generate_share_link(uid, str(target), remark=remark, protocol=proto, sni_host=domain)
+                    sid = f"{uid}:cf:{slug}:{target}"
+                    _add(uri, sid, cdn_name, str(target))
+                except Exception:
+                    continue
+
+    return out
+
+
 @app.post("/api/cluster/sync-now")
-async def api_cluster_sync_now(_=Depends(require_auth)):
-    """از پنل نود: ارسال کانفیگ‌های فعال به مرکزی."""
+async def api_cluster_sync_now(request: Request, _=Depends(require_auth)):
+    """از پنل نود: ارسال کانفیگ‌های انتخاب‌شده با دامنه اصلی / فرعی / هر دو به مرکزی."""
     if _cluster_role() != "node":
         raise HTTPException(status_code=400, detail="فقط نود می‌تواند همگام‌سازی کند")
     c = _cluster()
+    # امکان override لحظه‌ای از body
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if isinstance(body, dict):
+        if "sync_main" in body:
+            c["sync_main"] = _as_bool(body.get("sync_main"))
+        if "sync_extra" in body:
+            c["sync_extra"] = _as_bool(body.get("sync_extra"))
+        if "sync_cf" in body:
+            c["sync_cf"] = _as_bool(body.get("sync_cf"))
+
     central = (c.get("central_url") or "").strip().rstrip("/")
     token = (c.get("node_token") or "").strip()
     if not central or not token:
@@ -3329,17 +3438,7 @@ async def api_cluster_sync_now(_=Depends(require_auth)):
             proto = link.get("protocol") or DEFAULT_PROTOCOL
             if proto == "multi":
                 continue
-            try:
-                uri = generate_share_link(uid, host, remark=f"{link.get('label','cfg')}", protocol=proto)
-            except Exception:
-                continue
-            configs.append({
-                "label": link.get("label") or uid[:8],
-                "uri": uri,
-                "protocol": proto,
-                "active": True,
-                "source_id": uid,
-            })
+            configs.extend(_node_sync_share_variants(uid, link, host, c))
     payload = {
         "name": c.get("node_name") or host,
         "region": c.get("region") or "",
@@ -3360,8 +3459,22 @@ async def api_cluster_sync_now(_=Depends(require_auth)):
         raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"ارسال به مرکزی ناموفق: {exc}")
-    log_activity("system", f"همگام‌سازی نود: {len(configs)} کانفیگ ارسال شد", "ok")
-    return {"ok": True, "sent": len(configs), "accepted": data.get("accepted")}
+    await save_state()
+    log_activity(
+        "system",
+        f"همگام‌سازی نود: {len(configs)} لینک (main={c.get('sync_main')} extra={c.get('sync_extra')} cf={c.get('sync_cf')})",
+        "ok",
+    )
+    return {
+        "ok": True,
+        "sent": len(configs),
+        "accepted": data.get("accepted"),
+        "modes": {
+            "main": _as_bool(c.get("sync_main", True)),
+            "extra": _as_bool(c.get("sync_extra", True)),
+            "cf": _as_bool(c.get("sync_cf", False)),
+        },
+    }
 
 
 @app.get("/api/cluster/import-preview")

@@ -3019,6 +3019,13 @@ body:before,body:after,.dash-main-card:before,.stat-card-v2:before,.sub-card-top
         </div>
         <div class="cl" style="margin-top:10px"><i class="ti ti-key"></i><span>توکن نود: <b dir="ltr" id="cluster-node-token">—</b></span></div>
         <div class="cluster-sync-summary" id="cluster-sync-summary">کانفیگ‌های انتخاب‌شده از صفحه کانفیگ‌ها ارسال می‌شوند.</div>
+        <div style="margin-top:12px;padding:12px;border:1px solid var(--card-b);border-radius:12px;background:var(--bg)">
+          <div style="font-size:12px;font-weight:700;margin-bottom:8px">دامنه‌های ارسالی به مرکزی</div>
+          <div class="cl" style="margin-bottom:10px;font-size:12px">دامنه فرعی و IP تمیز را از منوی <b>کلادفلیر / دامنه فرعی</b> روی همین نود اضافه کن، بعد اینجا انتخاب کن کدام‌ها به مرکزی بروند.</div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px"><input type="checkbox" id="cluster-sync-main" checked> دامنه اصلی پنل</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px"><input type="checkbox" id="cluster-sync-extra" checked> دامنه فرعی + IP/دامنه تمیز</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox" id="cluster-sync-cf"> دامنه‌های Cloudflare نود</label>
+        </div>
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-p btn-sm" type="button" onclick="connectToCentral()"><i class="ti ti-plug-connected"></i> اتصال به مرکزی</button>
           <button class="btn btn-g btn-sm" type="button" onclick="syncNodeToCentral()"><i class="ti ti-cloud-upload"></i> همگام‌سازی انتخاب‌ها</button>
@@ -3864,7 +3871,7 @@ function renderLmodalList(links){
     const checked=lmodalInSub.has(l.uuid);
     const on=l.active&&!l.expired;
     const meta=l.remote_node
-      ? `<i class="ti ti-server" style="font-size:10px"></i> ${esc(l.node_name||'Node')} · ${(PROTO_MAP[l.protocol]||[l.protocol])[0]||l.protocol}`
+      ? `<i class="ti ti-server" style="font-size:10px"></i> ${esc(l.node_name||'Node')} · ${(PROTO_MAP[l.protocol]||[l.protocol])[0]||l.protocol}${l.target?' · '+esc(l.target):''}`
       : `<i class="ti ti-database" style="font-size:10px"></i> ${fmtB(l.used_bytes)} · ${(PROTO_MAP[l.protocol]||[l.protocol])[0]||l.protocol}`;
     return `<div class="lrow-v2 ${checked?'checked':''}" data-uuid="${esc(l.uuid)}" data-name="${esc(l.label).toLowerCase()}" onclick="toggleLrow(this)">
       <div class="lrow-v2-check"><i class="ti ti-check"></i></div>
@@ -4164,6 +4171,9 @@ async function loadClusterStatus(){
     set('cluster-central-url', c.central_url||'');
     const sec=document.getElementById('cluster-secret'); if(sec) sec.value=c.cluster_secret||'';
     const tok=document.getElementById('cluster-node-token'); if(tok) tok.textContent=c.node_token||'—';
+    const sm=document.getElementById('cluster-sync-main'); if(sm) sm.checked=c.sync_main!==false;
+    const se=document.getElementById('cluster-sync-extra'); if(se) se.checked=c.sync_extra!==false;
+    const sc=document.getElementById('cluster-sync-cf'); if(sc) sc.checked=!!c.sync_cf;
     const summary=document.getElementById('cluster-sync-summary'); if(summary) summary.textContent=d.role==='central'?`${toFa(d.remote_config_count||0)} کانفیگ از نودها دریافت شده`:`${toFa(d.selected_local_count||0)} کانفیگ برای ارسال انتخاب شده`;
     clusterRoleChanged();
     const list=document.getElementById('cluster-nodes-list');
@@ -4185,8 +4195,11 @@ async function saveClusterSettings(){
   const node_name=(document.getElementById('cluster-node-name').value||'').trim();
   const region=document.getElementById('cluster-region').value||'';
   const central_url=(document.getElementById('cluster-central-url')||{}).value||'';
+  const sync_main=(document.getElementById('cluster-sync-main')||{}).checked!==false;
+  const sync_extra=(document.getElementById('cluster-sync-extra')||{}).checked!==false;
+  const sync_cf=!!(document.getElementById('cluster-sync-cf')||{}).checked;
   try{
-    const r=await authF('/api/cluster/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,node_name,region,central_url})});
+    const r=await authF('/api/cluster/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,node_name,region,central_url,sync_main,sync_extra,sync_cf})});
     const d=await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(d.detail||'خطا');
     toast('نقش کلاستر ذخیره شد','ok');
@@ -4221,11 +4234,19 @@ async function connectToCentral(){
   }catch(e){toast(String(e.message||e),'err')}
 }
 async function syncNodeToCentral(){
+  const sync_main=(document.getElementById('cluster-sync-main')||{}).checked!==false;
+  const sync_extra=(document.getElementById('cluster-sync-extra')||{}).checked!==false;
+  const sync_cf=!!(document.getElementById('cluster-sync-cf')||{}).checked;
+  if(!sync_main && !sync_extra && !sync_cf){toast('حداقل یک نوع دامنه را انتخاب کنید','err');return}
   try{
-    const r=await authF('/api/cluster/sync-now',{method:'POST'});
+    const r=await authF('/api/cluster/sync-now',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sync_main,sync_extra,sync_cf})});
     const d=await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(d.detail||'خطا');
-    toast((d.sent||0)+' کانفیگ به مرکزی ارسال شد','ok');
+    const modes=[];
+    if(d.modes?.main)modes.push('اصلی');
+    if(d.modes?.extra)modes.push('فرعی/تمیز');
+    if(d.modes?.cf)modes.push('CF');
+    toast((d.sent||0)+' لینک ارسال شد'+(modes.length?' · '+modes.join('+'):''),'ok');
   }catch(e){toast(String(e.message||e),'err')}
 }
 async function deleteClusterNode(id){
