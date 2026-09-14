@@ -2024,6 +2024,56 @@ body{
 .info-item-val{font-size:14px;font-weight:700;color:var(--t1)}
 @media(max-width:800px){.info-strip{grid-template-columns:1fr 1fr}.main{padding:20px 16px 60px !important}}
 
+
+/* ===== Mobile + Dark polish (no neon) ===== */
+.btn{padding:7px 12px !important;font-size:12px !important;min-height:34px !important;border-radius:10px !important}
+.btn-sm{padding:5px 10px !important;font-size:11px !important;min-height:30px !important}
+.btn-icon{width:32px !important;height:32px !important;padding:0 !important}
+.btn-p{box-shadow:0 2px 8px rgba(15,23,42,.12) !important;background:#3B82F6 !important}
+[data-theme="dark"] .btn-p{background:#2563EB !important;box-shadow:none !important}
+.qa-item{padding:12px 8px !important}
+.qa-item i{width:32px !important;height:32px !important;border-radius:10px !important;font-size:15px !important;background:rgba(59,130,246,.1) !important;color:#60A5FA !important}
+.stat-v2-num{font-size:24px !important}
+.ov-topbar{padding:16px 18px !important;border-radius:14px !important;background:#0F172A !important;box-shadow:none !important}
+[data-theme="dark"] .ov-topbar{background:#111827 !important;border:1px solid #1E293B !important}
+.ov-greeting{font-size:20px !important}
+.ov-sub{font-size:12.5px !important}
+.sidebar{width:min(86vw,280px) !important}
+@media(max-width:900px){
+  .sidebar{transform:translateX(105%);transition:transform .25s ease}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-right:0 !important;padding:64px 14px 40px !important;max-width:100% !important}
+  .mob-top{display:flex !important}
+  .sb-close{display:flex !important}
+  .metrics,.stat-grid,.qa-grid,.g2,.g3,.dash-chart-grid,.traf-hero{grid-template-columns:1fr !important}
+  .qa-grid{grid-template-columns:repeat(2,1fr) !important}
+  .info-strip{grid-template-columns:1fr 1fr !important}
+  .cfg-card .cfg-row{flex-wrap:wrap !important}
+  .cfg-actions{width:100%;justify-content:flex-start;flex-wrap:wrap}
+  .topbar{flex-direction:column;align-items:stretch !important}
+  .tb-right{width:100%;justify-content:flex-start}
+  .modal-v2,.cm-modal{width:calc(100vw - 20px) !important;max-width:100% !important;margin:10px !important;max-height:90vh;overflow:auto}
+  .form-row{flex-direction:column}
+  .fi,.fs{width:100% !important;min-width:0 !important}
+}
+@media(max-width:480px){
+  .qa-grid{grid-template-columns:1fr 1fr !important;gap:8px !important}
+  .stat-grid{grid-template-columns:1fr !important}
+  .info-strip{grid-template-columns:1fr !important}
+  .btn{width:auto !important}
+}
+/* Dark calm palette */
+[data-theme="dark"] body{background:#0B1220 !important;color:#E5E7EB !important}
+[data-theme="dark"] .card,[data-theme="dark"] .cfg-card,[data-theme="dark"] .stat-card-v2,
+[data-theme="dark"] .dash-chart-card,[data-theme="dark"] .vless-box,[data-theme="dark"] .multi-group-card{
+  background:#111827 !important;border-color:#1F2937 !important;box-shadow:none !important;
+}
+[data-theme="dark"] .sidebar{background:#0F172A !important;border-color:#1F2937 !important;box-shadow:none !important}
+[data-theme="dark"] .nav-it.on{background:rgba(37,99,235,.12) !important;color:#93C5FD !important;box-shadow:inset -2px 0 0 #3B82F6 !important}
+[data-theme="dark"] .vl-code{background:#0B1220 !important;color:#E5E7EB !important}
+[data-theme="dark"] .fi,[data-theme="dark"] .fs, [data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea{
+  background:#0B1220 !important;border-color:#334155 !important;color:#E5E7EB !important}
+
 </style>
 </head>
 <body>
@@ -2887,6 +2937,72 @@ body{
     <div class="card" style="margin-top:16px">
       <div class="card-title"><i class="ti ti-database"></i> ذخیره‌سازی دیتابیس</div>
       <div class="cl" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><span>برای اینکه بعد از Redeploy داده‌ها پاک نشوند، در Railway یک <b>Volume</b> بساز و روی مسیر <b dir="ltr">/data</b> مونت کن. مسیر فعلی: <b dir="ltr" id="data-dir-path">—</b> · پایدار: <b id="data-dir-ok">—</b></span></div>
+    </div>
+
+    <div class="card" style="margin-top:16px;grid-column:1/-1">
+      <div class="card-title"><i class="ti ti-server-2"></i> کلاستر · مرکزی / نود</div>
+      <div class="cl" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><span>
+        برای چند منطقه Railway (آمریکا / هلند / سنگاپور): یک پنل را <b>مرکزی</b> کن و بقیه را <b>نود</b>.
+        نود بعد از اتصال، کانفیگ‌هایش را به مرکزی می‌فرستد تا یکجا مدیریت شوند.
+      </span></div>
+      <div class="form-row" style="gap:12px;flex-wrap:wrap">
+        <div class="fg" style="min-width:160px">
+          <label>نقش این پنل</label>
+          <select class="fi" id="cluster-role" onchange="clusterRoleChanged()">
+            <option value="standalone">مستقل</option>
+            <option value="central">مرکزی (Central)</option>
+            <option value="node">نود (Node)</option>
+          </select>
+        </div>
+        <div class="fg" style="min-width:160px">
+          <label>نام نود / منطقه</label>
+          <input class="fi" id="cluster-node-name" placeholder="NL-Amsterdam" style="width:100%">
+        </div>
+        <div class="fg" style="min-width:140px">
+          <label>منطقه</label>
+          <select class="fi" id="cluster-region">
+            <option value="">—</option>
+            <option value="us-east">آمریکا شرق</option>
+            <option value="us-west">آمریکا غرب</option>
+            <option value="nl">هلند</option>
+            <option value="sg">سنگاپور</option>
+            <option value="custom">سایر</option>
+          </select>
+        </div>
+      </div>
+      <div id="cluster-central-box" style="display:none;margin-top:14px">
+        <div class="fg"><label>Cluster Secret (برای ثبت نودها)</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input class="fi" id="cluster-secret" dir="ltr" readonly placeholder="هنوز ساخته نشده" style="flex:1;min-width:180px">
+            <button class="btn btn-o btn-sm" type="button" onclick="generateClusterSecret()"><i class="ti ti-refresh"></i> ساخت Secret</button>
+            <button class="btn btn-g btn-sm" type="button" onclick="copyClusterSecret()"><i class="ti ti-copy"></i> کپی</button>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <div class="card-title" style="margin-bottom:8px"><i class="ti ti-network"></i> نودهای متصل</div>
+          <div id="cluster-nodes-list" class="cl">هنوز نودی ثبت نشده</div>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-g btn-sm" type="button" onclick="copyAllNodeConfigs()"><i class="ti ti-copy"></i> کپی همه کانفیگ نودها</button>
+          <button class="btn btn-o btn-sm" type="button" onclick="loadClusterStatus()"><i class="ti ti-refresh"></i> رفرش</button>
+        </div>
+      </div>
+      <div id="cluster-node-box" style="display:none;margin-top:14px">
+        <div class="fg"><label>آدرس پنل مرکزی</label>
+          <input class="fi" id="cluster-central-url" dir="ltr" placeholder="https://central.up.railway.app" style="width:100%">
+        </div>
+        <div class="fg" style="margin-top:10px"><label>Cluster Secret (از پنل مرکزی)</label>
+          <input class="fi" id="cluster-join-secret" dir="ltr" placeholder="secret از مرکزی" style="width:100%">
+        </div>
+        <div class="cl" style="margin-top:10px"><i class="ti ti-key"></i><span>توکن نود: <b dir="ltr" id="cluster-node-token">—</b></span></div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-p btn-sm" type="button" onclick="connectToCentral()"><i class="ti ti-plug-connected"></i> اتصال به مرکزی</button>
+          <button class="btn btn-g btn-sm" type="button" onclick="syncNodeToCentral()"><i class="ti ti-cloud-upload"></i> ارسال کانفیگ‌ها به مرکزی</button>
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <button class="btn btn-p btn-sm" type="button" onclick="saveClusterSettings()"><i class="ti ti-device-floppy"></i> ذخیره نقش کلاستر</button>
+      </div>
     </div>
 
     <div class="card" style="margin-top:16px">
@@ -3986,7 +4102,110 @@ async function loadPanelDomain(){
     if(sh) sh.textContent=d.host||location.host;
     loadLoginPathSettings(d);
     loadTcpRealitySettings(d);
+    loadClusterStatus();
   }catch(e){console.error(e)}
+}
+
+function clusterRoleChanged(){
+  const role=(document.getElementById('cluster-role')||{}).value||'standalone';
+  const cb=document.getElementById('cluster-central-box');
+  const nb=document.getElementById('cluster-node-box');
+  if(cb) cb.style.display=role==='central'?'block':'none';
+  if(nb) nb.style.display=role==='node'?'block':'none';
+}
+async function loadClusterStatus(){
+  try{
+    const r=await authF('/api/cluster/status'); if(!r.ok)return;
+    const d=await r.json();
+    const c=d.cluster||{};
+    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
+    set('cluster-role', d.role||'standalone');
+    set('cluster-node-name', c.node_name||'');
+    set('cluster-region', c.region||'');
+    set('cluster-central-url', c.central_url||'');
+    const sec=document.getElementById('cluster-secret'); if(sec) sec.value=c.cluster_secret||'';
+    const tok=document.getElementById('cluster-node-token'); if(tok) tok.textContent=c.node_token||'—';
+    clusterRoleChanged();
+    const list=document.getElementById('cluster-nodes-list');
+    if(list && d.role==='central'){
+      const nodes=d.nodes||[];
+      if(!nodes.length){list.innerHTML='هنوز نودی ثبت نشده';}
+      else{
+        list.innerHTML=nodes.map(n=>`<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--card-b)">
+          <div><b>${esc(n.name||'Node')}</b> <span class="badge bg-blue">${esc(n.region||'—')}</span>
+          <div style="font-size:11px;color:var(--t3);margin-top:3px" dir="ltr">${esc(n.host||'')} · ${toFa(n.config_count||0)} کانفیگ · ${esc((n.last_seen||'').slice(0,19))}</div></div>
+          <button class="btn btn-d btn-sm" onclick="deleteClusterNode('${esc(n.id)}')"><i class="ti ti-trash"></i></button>
+        </div>`).join('');
+      }
+    }
+  }catch(e){console.error(e)}
+}
+async function saveClusterSettings(){
+  const role=document.getElementById('cluster-role').value;
+  const node_name=(document.getElementById('cluster-node-name').value||'').trim();
+  const region=document.getElementById('cluster-region').value||'';
+  const central_url=(document.getElementById('cluster-central-url')||{}).value||'';
+  try{
+    const r=await authF('/api/cluster/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,node_name,region,central_url})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.detail||'خطا');
+    toast('نقش کلاستر ذخیره شد','ok');
+    loadClusterStatus();
+  }catch(e){toast(String(e.message||e),'err')}
+}
+async function generateClusterSecret(){
+  try{
+    const r=await authF('/api/cluster/generate-secret',{method:'POST'});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.detail||'خطا');
+    const sec=document.getElementById('cluster-secret'); if(sec) sec.value=d.cluster_secret||'';
+    toast('Secret ساخته شد','ok');
+  }catch(e){toast(String(e.message||e),'err')}
+}
+function copyClusterSecret(){
+  const v=(document.getElementById('cluster-secret')||{}).value||'';
+  if(!v){toast('Secret خالی است','err');return}
+  navigator.clipboard.writeText(v).then(()=>toast('کپی شد','ok')).catch(()=>toast('کپی نشد','err'));
+}
+async function connectToCentral(){
+  const central_url=(document.getElementById('cluster-central-url').value||'').trim();
+  const cluster_secret=(document.getElementById('cluster-join-secret').value||'').trim();
+  const node_name=(document.getElementById('cluster-node-name').value||'').trim();
+  const region=document.getElementById('cluster-region').value||'';
+  try{
+    const r=await authF('/api/cluster/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({central_url,cluster_secret,node_name,region})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.detail||'خطا');
+    toast('به مرکزی وصل شد','ok');
+    loadClusterStatus();
+  }catch(e){toast(String(e.message||e),'err')}
+}
+async function syncNodeToCentral(){
+  try{
+    const r=await authF('/api/cluster/sync-now',{method:'POST'});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.detail||'خطا');
+    toast((d.sent||0)+' کانفیگ به مرکزی ارسال شد','ok');
+  }catch(e){toast(String(e.message||e),'err')}
+}
+async function deleteClusterNode(id){
+  if(!confirm('حذف این نود؟'))return;
+  try{
+    const r=await authF('/api/cluster/nodes/'+id,{method:'DELETE'});
+    if(!r.ok) throw new Error('خطا');
+    toast('نود حذف شد','ok');
+    loadClusterStatus();
+  }catch(e){toast('خطا','err')}
+}
+async function copyAllNodeConfigs(){
+  try{
+    const r=await authF('/api/cluster/import-preview');
+    const d=await r.json();
+    const lines=d.lines||[];
+    if(!lines.length){toast('کانفیگی نیست','err');return}
+    await navigator.clipboard.writeText(lines.join('\n'));
+    toast(lines.length+' لینک کپی شد','ok');
+  }catch(e){toast('خطا','err')}
 }
 
 function loadTcpRealitySettings(d){

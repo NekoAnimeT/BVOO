@@ -115,6 +115,7 @@ def _state_snapshot() -> dict:
         "subs": dict(SUBS),
         "customers": dict(CUSTOMERS),
         "settings": dict(SETTINGS),
+        "nodes": dict(NODES),
         "password_hash": AUTH["password_hash"],
         "hourly_traffic": dict(hourly_traffic),
         "stats": {
@@ -164,6 +165,13 @@ async def load_state():
             SETTINGS.setdefault("extra_domains", [])
             SETTINGS.setdefault("railway_tcp", {"domain": "", "port": 0, "path_mode": "panel"})
             SETTINGS.setdefault("reality", {"host": "", "port": 443, "pbk": "", "sid": "", "sni": "", "fp": "chrome", "spx": "/"})
+            SETTINGS.setdefault("cluster", {
+                "role": "standalone", "node_name": "", "region": "",
+                "central_url": "", "node_token": "", "cluster_secret": "", "auto_sync": False,
+            })
+            if isinstance(data.get("nodes"), dict):
+                NODES.clear()
+                NODES.update(data.get("nodes") or {})
             if "password_hash" in data:
                 AUTH["password_hash"] = data["password_hash"]
             ht = data.get("hourly_traffic") or {}
@@ -257,7 +265,20 @@ SETTINGS: dict = {
         "⏰ زمان باقیمانده: {remain_time}",
     ],
     "info_configs_enabled": True,
+    # پنل مرکزی / نود (چند منطقه Railway)
+    "cluster": {
+        "role": "standalone",   # standalone | central | node
+        "node_name": "",
+        "region": "",           # us-east | us-west | nl | sg | custom
+        "central_url": "",      # https://central.example.com
+        "node_token": "",       # توکن اختصاصی این نود
+        "cluster_secret": "",   # فقط روی مرکزی — برای ثبت نود جدید
+        "auto_sync": False,
+    },
 }
+# نودهای ثبت‌شده روی پنل مرکزی: id -> meta + configs
+NODES: dict = {}
+NODES_LOCK = asyncio.Lock()
 FAILED_LOGINS: dict = {}
 
 PROTOCOLS = (
@@ -2880,6 +2901,338 @@ async def ws_trojan(ws: WebSocket):
 async def ws_shadowsocks(ws: WebSocket, uuid: str):
     from shadowsocks_ws import shadowsocks_ws_tunnel
     await shadowsocks_ws_tunnel(ws, uuid)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Cluster: Central panel ↔ Node panels (multi-region Railway)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _cluster() -> dict:
+    c = SETTINGS.setdefault("cluster", {
+        "role": "standalone", "node_name": "", "region": "",
+        "central_url": "", "node_token": "", "cluster_secret": "", "auto_sync": False,
+    })
+    return c
+
+
+def _cluster_role() -> str:
+    role = str(_cluster().get("role") or "standalone").strip().lower()
+    return role if role in ("standalone", "central", "node") else "standalone"
+
+
+def _verify_node_token(request: Request) -> dict | None:
+    """Validate node token from Authorization Bearer or X-Node-Token."""
+    token = ""
+    auth = request.headers.get("authorization") or ""
+    if auth.lower().startswith("bearer "):
+        token = auth[7:].strip()
+    if not token:
+        token = (request.headers.get("x-node-token") or "").strip()
+    if not token:
+        return None
+    for nid, node in NODES.items():
+        if str(node.get("token") or "") == token:
+            return {"id": nid, **node}
+    return None
+
+
+@app.get("/api/cluster/status")
+async def api_cluster_status(_=Depends(require_auth)):
+    c = _cluster()
+    role = _cluster_role()
+    async with NODES_LOCK:
+        nodes_snap = [
+            {
+                "id": nid,
+                "name": n.get("name"),
+                "region": n.get("region"),
+                "host": n.get("host"),
+                "last_seen": n.get("last_seen"),
+                "config_count": len(n.get("configs") or []),
+                "online": bool(n.get("last_seen")),
+            }
+            for nid, n in NODES.items()
+        ]
+    return {
+        "role": role,
+        "cluster": {
+            "role": role,
+            "node_name": c.get("node_name") or "",
+            "region": c.get("region") or "",
+            "central_url": c.get("central_url") or "",
+            "has_node_token": bool(c.get("node_token")),
+            "has_cluster_secret": bool(c.get("cluster_secret")),
+            "auto_sync": bool(c.get("auto_sync")),
+            # secret فقط روی مرکزی و فقط به ادمین لاگین‌شده
+            "cluster_secret": c.get("cluster_secret") or "" if role == "central" else "",
+            "node_token": c.get("node_token") or "" if role == "node" else "",
+        },
+        "nodes": nodes_snap if role == "central" else [],
+        "local_host": get_host(),
+    }
+
+
+@app.patch("/api/cluster/settings")
+async def api_cluster_settings(request: Request, _=Depends(require_auth)):
+    body = await request.json()
+    c = _cluster()
+    if "role" in body:
+        role = str(body.get("role") or "standalone").strip().lower()
+        c["role"] = role if role in ("standalone", "central", "node") else "standalone"
+    if "node_name" in body:
+        c["node_name"] = str(body.get("node_name") or "").strip()[:60]
+    if "region" in body:
+        c["region"] = str(body.get("region") or "").strip()[:40]
+    if "central_url" in body:
+        url = str(body.get("central_url") or "").strip().rstrip("/")
+        if url and not url.startswith("http"):
+            url = "https://" + url
+        c["central_url"] = url[:200]
+    if "auto_sync" in body:
+        c["auto_sync"] = bool(body.get("auto_sync"))
+    if "node_token" in body:
+        c["node_token"] = str(body.get("node_token") or "").strip()[:120]
+    await save_state()
+    log_activity("system", f"تنظیمات کلاستر ذخیره شد (role={c.get('role')})", "ok")
+    return {"ok": True, "role": c.get("role")}
+
+
+@app.post("/api/cluster/generate-secret")
+async def api_cluster_generate_secret(_=Depends(require_auth)):
+    if _cluster_role() != "central":
+        raise HTTPException(status_code=400, detail="فقط پنل مرکزی می‌تواند Secret بسازد")
+    c = _cluster()
+    c["cluster_secret"] = secrets.token_urlsafe(24)
+    await save_state()
+    log_activity("system", "Cluster Secret جدید ساخته شد", "ok")
+    return {"ok": True, "cluster_secret": c["cluster_secret"]}
+
+
+@app.post("/api/cluster/register")
+async def api_cluster_register(request: Request):
+    """نود → مرکزی: ثبت‌نام با cluster_secret."""
+    if _cluster_role() != "central":
+        raise HTTPException(status_code=403, detail="این پنل مرکزی نیست")
+    body = await request.json()
+    secret = str(body.get("cluster_secret") or body.get("secret") or "").strip()
+    c = _cluster()
+    if not c.get("cluster_secret") or secret != c.get("cluster_secret"):
+        raise HTTPException(status_code=403, detail="Cluster Secret نامعتبر است")
+    name = str(body.get("name") or body.get("node_name") or "Node").strip()[:60] or "Node"
+    region = str(body.get("region") or "").strip()[:40]
+    host = str(body.get("host") or "").strip()[:120]
+    host = re.sub(r"^https?://", "", host, flags=re.I).split("/", 1)[0].strip()
+    node_id = str(body.get("node_id") or "").strip() or generate_uuid()
+    token = secrets.token_urlsafe(32)
+    async with NODES_LOCK:
+        # اگر همین host قبلاً ثبت شده، به‌روزرسانی
+        for nid, n in list(NODES.items()):
+            if host and n.get("host") == host:
+                node_id = nid
+                token = n.get("token") or token
+                break
+        NODES[node_id] = {
+            "name": name,
+            "region": region,
+            "host": host,
+            "token": token,
+            "last_seen": datetime.now().isoformat(),
+            "configs": NODES.get(node_id, {}).get("configs") or [],
+            "created_at": NODES.get(node_id, {}).get("created_at") or datetime.now().isoformat(),
+        }
+    await save_state()
+    log_activity("system", f"نود «{name}» ثبت شد ({region or host})", "ok")
+    return {
+        "ok": True,
+        "node_id": node_id,
+        "node_token": token,
+        "central_host": get_host(),
+    }
+
+
+@app.post("/api/cluster/push")
+async def api_cluster_push(request: Request):
+    """نود → مرکزی: ارسال لیست کانفیگ‌ها (share URI)."""
+    if _cluster_role() != "central":
+        raise HTTPException(status_code=403, detail="این پنل مرکزی نیست")
+    node = _verify_node_token(request)
+    if not node:
+        raise HTTPException(status_code=401, detail="node token نامعتبر است")
+    body = await request.json()
+    configs = body.get("configs") or []
+    if not isinstance(configs, list):
+        raise HTTPException(status_code=400, detail="configs must be a list")
+    clean = []
+    for item in configs[:200]:
+        if isinstance(item, str):
+            uri = item.strip()
+            if uri:
+                clean.append({"label": "config", "uri": uri, "protocol": ""})
+        elif isinstance(item, dict):
+            uri = str(item.get("uri") or item.get("link") or "").strip()
+            if not uri:
+                continue
+            clean.append({
+                "label": str(item.get("label") or item.get("name") or "config")[:80],
+                "uri": uri[:2000],
+                "protocol": str(item.get("protocol") or "")[:40],
+                "active": bool(item.get("active", True)),
+            })
+    nid = node["id"]
+    async with NODES_LOCK:
+        if nid not in NODES:
+            raise HTTPException(status_code=404, detail="node not found")
+        NODES[nid]["configs"] = clean
+        NODES[nid]["last_seen"] = datetime.now().isoformat()
+        if body.get("name"):
+            NODES[nid]["name"] = str(body.get("name"))[:60]
+        if body.get("region"):
+            NODES[nid]["region"] = str(body.get("region"))[:40]
+        if body.get("host"):
+            h = re.sub(r"^https?://", "", str(body.get("host")), flags=re.I).split("/", 1)[0].strip()
+            NODES[nid]["host"] = h[:120]
+    await save_state()
+    return {"ok": True, "accepted": len(clean)}
+
+
+@app.get("/api/cluster/nodes")
+async def api_cluster_nodes(_=Depends(require_auth)):
+    if _cluster_role() != "central":
+        return {"nodes": [], "role": _cluster_role()}
+    async with NODES_LOCK:
+        out = []
+        for nid, n in NODES.items():
+            out.append({
+                "id": nid,
+                "name": n.get("name"),
+                "region": n.get("region"),
+                "host": n.get("host"),
+                "last_seen": n.get("last_seen"),
+                "config_count": len(n.get("configs") or []),
+                "configs": n.get("configs") or [],
+            })
+    return {"nodes": out, "role": "central"}
+
+
+@app.delete("/api/cluster/nodes/{node_id}")
+async def api_cluster_node_delete(node_id: str, _=Depends(require_auth)):
+    async with NODES_LOCK:
+        if node_id not in NODES:
+            raise HTTPException(status_code=404, detail="node not found")
+        name = NODES[node_id].get("name")
+        del NODES[node_id]
+    await save_state()
+    log_activity("system", f"نود «{name}» حذف شد", "warn")
+    return {"ok": True}
+
+
+@app.post("/api/cluster/connect")
+async def api_cluster_connect(request: Request, _=Depends(require_auth)):
+    """از پنل نود: ثبت‌نام روی مرکزی با secret."""
+    if _cluster_role() != "node":
+        raise HTTPException(status_code=400, detail="نقش پنل باید Node باشد")
+    body = await request.json()
+    c = _cluster()
+    central = (body.get("central_url") or c.get("central_url") or "").strip().rstrip("/")
+    secret = (body.get("cluster_secret") or body.get("secret") or "").strip()
+    if not central or not secret:
+        raise HTTPException(status_code=400, detail="central_url و cluster_secret لازم است")
+    if not central.startswith("http"):
+        central = "https://" + central
+    payload = {
+        "cluster_secret": secret,
+        "name": body.get("node_name") or c.get("node_name") or get_host(),
+        "region": body.get("region") or c.get("region") or "",
+        "host": get_host(),
+    }
+    try:
+        async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+            r = await client.post(f"{central}/api/cluster/register", json=payload)
+            data = r.json() if r.content else {}
+            if r.status_code >= 400:
+                raise HTTPException(status_code=400, detail=data.get("detail") or f"central error {r.status_code}")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"اتصال به مرکزی ناموفق: {exc}")
+    c["central_url"] = central
+    c["node_token"] = str(data.get("node_token") or "")
+    c["node_name"] = payload["name"]
+    c["region"] = payload["region"]
+    c["role"] = "node"
+    await save_state()
+    log_activity("system", f"به پنل مرکزی وصل شد: {central}", "ok")
+    return {"ok": True, "node_token": c["node_token"], "central_url": central}
+
+
+@app.post("/api/cluster/sync-now")
+async def api_cluster_sync_now(_=Depends(require_auth)):
+    """از پنل نود: ارسال کانفیگ‌های فعال به مرکزی."""
+    if _cluster_role() != "node":
+        raise HTTPException(status_code=400, detail="فقط نود می‌تواند همگام‌سازی کند")
+    c = _cluster()
+    central = (c.get("central_url") or "").strip().rstrip("/")
+    token = (c.get("node_token") or "").strip()
+    if not central or not token:
+        raise HTTPException(status_code=400, detail="ابتدا به مرکزی وصل شوید")
+    host = get_host()
+    configs = []
+    async with LINKS_LOCK:
+        for uid, link in LINKS.items():
+            if not is_link_allowed(link):
+                continue
+            if link.get("is_multi_child"):
+                continue
+            proto = link.get("protocol") or DEFAULT_PROTOCOL
+            if proto == "multi":
+                continue
+            try:
+                uri = generate_share_link(uid, host, remark=f"{link.get('label','cfg')}", protocol=proto)
+            except Exception:
+                continue
+            configs.append({
+                "label": link.get("label") or uid[:8],
+                "uri": uri,
+                "protocol": proto,
+                "active": True,
+            })
+    payload = {
+        "name": c.get("node_name") or host,
+        "region": c.get("region") or "",
+        "host": host,
+        "configs": configs,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            r = await client.post(
+                f"{central}/api/cluster/push",
+                json=payload,
+                headers={"Authorization": f"Bearer {token}", "X-Node-Token": token},
+            )
+            data = r.json() if r.content else {}
+            if r.status_code >= 400:
+                raise HTTPException(status_code=400, detail=data.get("detail") or f"push failed {r.status_code}")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"ارسال به مرکزی ناموفق: {exc}")
+    log_activity("system", f"همگام‌سازی نود: {len(configs)} کانفیگ ارسال شد", "ok")
+    return {"ok": True, "sent": len(configs), "accepted": data.get("accepted")}
+
+
+@app.get("/api/cluster/import-preview")
+async def api_cluster_import_preview(_=Depends(require_auth)):
+    """روی مرکزی: همه URIهای نودها برای کپی/استفاده."""
+    if _cluster_role() != "central":
+        return {"lines": [], "count": 0}
+    lines = []
+    async with NODES_LOCK:
+        for n in NODES.values():
+            for cfg in n.get("configs") or []:
+                uri = cfg.get("uri") if isinstance(cfg, dict) else str(cfg)
+                if uri:
+                    lines.append(uri)
+    return {"lines": lines, "count": len(lines)}
 
 
 # XHTTP router
