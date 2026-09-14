@@ -90,6 +90,12 @@ input::placeholder{color:#64748B}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media(max-width:480px){.card{padding:28px 20px}.stats{grid-template-columns:1fr}}
 </style>
+
+
+
+<style id="oxnet-login-calm-v410">
+body{background:#F2F0EA!important;background-image:none!important;color:#252824!important}.bg-grid{display:none!important}.wrap{max-width:420px!important}.top-brand{justify-content:flex-start!important;margin-bottom:18px!important}.mark{background:#315F73!important;box-shadow:none!important;border-radius:9px!important}.brand-txt b{color:#252824!important}.brand-txt span{color:#747A73!important}.card{background:#FFF!important;border:1px solid #DEDAD0!important;border-radius:12px!important;padding:32px!important;backdrop-filter:none!important;box-shadow:0 8px 28px rgba(35,38,34,.07)!important}.card h1{color:#252824!important;font-size:24px!important}.card p.lead,label{color:#626861!important}input{background:#FBFAF7!important;color:#252824!important;border:1px solid #D8D4CA!important;border-radius:8px!important}input:focus{border-color:#315F73!important;box-shadow:0 0 0 3px #E9F0F2!important}.btn{background:#315F73!important;background-image:none!important;border-radius:8px!important;box-shadow:none!important}.btn:hover{background:#274B5A!important;transform:none!important;filter:none!important}.stats{gap:8px!important}.stat{background:#F7F6F2!important;border:1px solid #E5E2DA!important;border-radius:8px!important}.stat b{color:#3C403B!important}.stat span,.bottom{color:#7D837B!important}.bottom b{color:#626861!important}.err{background:#F7EAE8!important;border-color:#E9C9C5!important;color:#843B36!important}@media(max-width:480px){body{padding:16px!important}.card{padding:24px 20px!important}.stats{grid-template-columns:1fr 1fr 1fr!important}}
+</style>
 </head>
 <body>
 <div class="bg-grid"></div>
@@ -2075,6 +2081,22 @@ body{
   background:#0B1220 !important;border-color:#334155 !important;color:#E5E7EB !important}
 
 </style>
+<style id="oxnet-calm-redesign-v410">
+:root{--bg:#F7F6F2!important;--bg2:#FCFBF8!important;--card:#FFFFFF!important;--card-b:#E5E2DA!important;--card-bh:#CBC6BB!important;--accent:#315F73!important;--accent2:#274B5A!important;--accent-d:#E9F0F2!important;--t1:#252824!important;--t2:#626861!important;--t3:#8B9189!important;--green:#3F765D!important;--green-bg:#EAF2ED!important;--green-t:#315E49!important;--amber:#9A6A2F!important;--amber-bg:#F5EEE3!important;--amber-t:#795224!important;--red:#A64B45!important;--red-bg:#F7EAE8!important;--red-t:#843B36!important;--purple:#6B667D!important;--purple-bg:#EFEDF2!important;--purple-t:#555164!important;--info:#315F73!important;--info-bg:#E9F0F2!important;--sidebar-w:252px!important;--r-sm:8px!important;--r-md:10px!important;--r-lg:12px!important;--shadow:0 1px 2px rgba(30,35,30,.035)!important;--shadow-md:0 6px 18px rgba(30,35,30,.055)!important}
+[data-theme="dark"]{--bg:#191A18!important;--bg2:#20211F!important;--card:#242623!important;--card-b:#3A3D38!important;--card-bh:#50544D!important;--accent:#8EAFBA!important;--accent2:#A8C2CA!important;--accent-d:#29383D!important;--t1:#F2F1EC!important;--t2:#B6BAB2!important;--t3:#858B82!important;--green:#82AA91!important;--green-bg:#29382F!important;--green-t:#A7C8B2!important;--amber:#C7A46B!important;--amber-bg:#3D3427!important;--amber-t:#DFC28E!important;--red:#D38A83!important;--red-bg:#422E2C!important;--red-t:#E6A7A1!important;--purple:#AAA4B8!important;--purple-bg:#35323B!important;--purple-t:#C5C0D0!important}
+html{font-size:15px}body{background:var(--bg)!important;background-image:none!important;font-family:"Vazirmatn",Tahoma,Arial,sans-serif!important;color:var(--t1)!important;line-height:1.65!important}
+body:before,body:after,.dash-main-card:before,.stat-card-v2:before,.sub-card-top:before{display:none!important;background:none!important}
+.sidebar{width:var(--sidebar-w)!important;background:var(--bg2)!important;border-left:1px solid var(--card-b)!important;box-shadow:none!important}.logo{padding:20px 18px!important;background:none!important;border-bottom:1px solid var(--card-b)!important}.brand-mark,.brand-mark.small{background:var(--accent)!important;background-image:none!important;box-shadow:none!important;border-radius:8px!important}.logo-name{font-size:16px!important;letter-spacing:.01em!important}.nav-sec{padding:18px 18px 6px!important;font-size:10px!important;letter-spacing:.04em!important}.nav-it{margin:2px 10px!important;padding:10px 12px!important;border:1px solid transparent!important;border-radius:8px!important;color:var(--t2)!important;font-weight:500!important}.nav-it:hover{background:var(--accent-d)!important;color:var(--t1)!important}.nav-it.on{background:var(--accent-d)!important;color:var(--accent)!important;border-color:transparent!important;box-shadow:none!important}.nav-it.on i{color:var(--accent)!important}.nav-badge,.nav-it.on .nav-badge{background:var(--card)!important;color:var(--t2)!important;border:1px solid var(--card-b)!important}
+.main{margin-right:var(--sidebar-w)!important;max-width:1440px!important;padding:28px 32px 64px!important}.ov-topbar{background:var(--card)!important;background-image:none!important;color:var(--t1)!important;border:1px solid var(--card-b)!important;border-radius:12px!important;box-shadow:var(--shadow)!important;padding:22px 24px!important}.ov-greeting{color:var(--t1)!important;font-size:24px!important;font-weight:750!important}.ov-sub{color:var(--t2)!important}.ov-top-actions .btn-o{background:transparent!important;color:var(--t2)!important;border-color:var(--card-b)!important}.ov-top-actions .btn-p{background:var(--accent)!important;color:#fff!important}
+.card,.cfg-card,.sub-card,.dash-chart-card,.vless-box,.stat-card-v2,.multi-group-card,.traf-chart-card,.traf-main-stat,.traf-mini,.qa-item,.info-item{background:var(--card)!important;background-image:none!important;border:1px solid var(--card-b)!important;border-radius:10px!important;box-shadow:var(--shadow)!important;transform:none!important}.card:hover,.cfg-card:hover,.sub-card:hover,.dash-chart-card:hover,.stat-card-v2:hover,.qa-item:hover{border-color:var(--card-bh)!important;box-shadow:var(--shadow-md)!important;transform:none!important}.qa-grid{gap:10px!important}.qa-item{padding:14px 10px!important}.qa-item i,.sub-card-icon,.dash-kpi-icon,.dash-protocol i{width:34px!important;height:34px!important;border-radius:8px!important;background:var(--accent-d)!important;color:var(--accent)!important;box-shadow:none!important}.stat-grid{gap:12px!important}.stat-card-v2{padding:18px!important}.stat-v2-num{font-size:28px!important;font-weight:700!important}.proto-chip-v2,.badge{border-radius:7px!important}.proto-chip-v2{background:var(--card)!important;border:1px solid var(--card-b)!important}.vless-box{background:var(--card)!important}.vl-code{background:var(--bg)!important;color:var(--t1)!important;border:1px solid var(--card-b)!important;border-radius:8px!important}
+.btn,.btn-p,.btn-g,.btn-o,.btn-d,.btn-sm,.btn-pur,.btn-amber,.cm-btn-submit,.modal-v2-btn-submit{min-height:40px!important;padding:8px 14px!important;border-radius:8px!important;font-size:13px!important;font-weight:650!important;box-shadow:none!important;transform:none!important;background-image:none!important}.btn:hover,.cm-btn-submit:hover,.modal-v2-btn-submit:hover{transform:none!important;filter:none!important}.btn-p,.cm-btn-submit,.modal-v2-btn-submit{background:var(--accent)!important;color:#fff!important}.btn-p:hover,.cm-btn-submit:hover,.modal-v2-btn-submit:hover{background:var(--accent2)!important}.btn-g,.btn-o{background:transparent!important;color:var(--t2)!important;border:1px solid var(--card-b)!important}.btn-d{background:var(--red-bg)!important;color:var(--red-t)!important}.btn-amber{background:var(--amber-bg)!important;color:var(--amber-t)!important}.btn-pur{background:var(--purple-bg)!important;color:var(--purple-t)!important}.btn-icon{width:40px!important;padding:0!important}
+.fi,.fs,.pw-input,.cm-input,.modal-v2-input,input[type=text],input[type=password],input[type=number],select,textarea{min-height:44px!important;height:auto;border-radius:8px!important;background:var(--card)!important;border:1px solid var(--card-b)!important;color:var(--t1)!important}.fi:focus,.fs:focus,input:focus,select:focus,textarea:focus{border-color:var(--accent)!important;box-shadow:0 0 0 3px var(--accent-d)!important}.topbar{margin-bottom:20px!important}.tb-title{font-size:21px!important;font-weight:700!important}.cfg-row{gap:14px!important}.cfg-actions{gap:6px!important}.modal-bg,.modal-overlay,.lmodal-bg{background:rgba(25,26,24,.52)!important;backdrop-filter:blur(3px)!important}.modal-v2,.cm-modal{border-radius:12px!important;border:1px solid var(--card-b)!important;box-shadow:0 18px 50px rgba(0,0,0,.16)!important}.cm-opt{border-radius:8px!important;background:var(--card)!important}.cm-opt.sel,.cm-opt.on,.cm-opt.selected{background:var(--accent-d)!important;border-color:var(--accent)!important}.cm-opt-radio::after{background:var(--accent)!important}.cm-opt-tag{border-radius:6px!important;background:var(--bg)!important;color:var(--t2)!important}
+.cluster-sync-btn{width:40px;height:40px;border:1px solid var(--card-b);border-radius:8px;background:transparent;color:var(--t3);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px}.cluster-sync-btn.on{background:var(--accent-d);color:var(--accent);border-color:transparent}.cluster-sync-btn:focus-visible,.btn:focus-visible,.nav-it:focus-visible{outline:3px solid var(--accent-d);outline-offset:2px}.remote-config-card{border-right:3px solid var(--accent)!important}.sync-create-option{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--card-b);border-radius:8px;background:var(--bg);cursor:pointer}.sync-create-option input{width:18px;height:18px;min-height:0!important;margin-top:2px}.sync-create-option span{display:flex;flex-direction:column}.sync-create-option b{font-size:12.5px}.sync-create-option small{font-size:10.5px;color:var(--t3)}.cluster-sync-summary{margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--accent-d);color:var(--accent);font-size:12px;font-weight:600}
+@media(max-width:900px){.main{margin-right:0!important;padding:64px 16px 40px!important}.sidebar{width:min(86vw,252px)!important}.cfg-row{align-items:flex-start!important}.cfg-actions{width:100%!important}.info-strip{grid-template-columns:1fr 1fr!important}}
+@media(max-width:520px){.main{padding-inline:12px!important}.ov-topbar{padding:18px!important}.ov-greeting{font-size:21px!important}.qa-grid,.stat-grid,.info-strip{grid-template-columns:1fr 1fr!important}.cfg-card{padding:14px!important}.btn{min-height:42px!important}}
+.vless-box,.stat-card-v2{min-width:0!important;overflow:hidden!important}.vl-code{max-width:100%!important;overflow-x:auto!important}.vl-actions{max-width:100%!important;flex-wrap:wrap!important}.spark{max-width:44%!important}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+</style>
 </head>
 <body>
 <div class="toast" id="toast"></div>
@@ -2339,6 +2361,7 @@ body{
 
     <div class="cm-footer">
       <button class="cm-btn-cancel" onclick="closeModal('modal-create-link')">انصراف</button>
+      <label class="sync-create-option"><input type="checkbox" id="nl-sync-central" checked><span><b>ارسال به پنل مرکزی</b><small>این کانفیگ در همگام‌سازی نود ارسال شود</small></span></label>
       <button class="cm-btn-submit" id="cm-submit-btn" onclick="createLink()"><i class="ti ti-link-plus" id="cm-submit-icon"></i> <span id="cm-submit-text">ساخت کانفیگ</span></button>    </div>
   </div>
 </div>
@@ -2983,7 +3006,7 @@ body{
           <div id="cluster-nodes-list" class="cl">هنوز نودی ثبت نشده</div>
         </div>
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-g btn-sm" type="button" onclick="copyAllNodeConfigs()"><i class="ti ti-copy"></i> کپی همه کانفیگ نودها</button>
+          <button class="btn btn-g btn-sm" type="button" onclick="copyAllNodeConfigs()"><i class="ti ti-copy"></i> کپی کانفیگ‌های دریافتی</button>
           <button class="btn btn-o btn-sm" type="button" onclick="loadClusterStatus()"><i class="ti ti-refresh"></i> رفرش</button>
         </div>
       </div>
@@ -2995,9 +3018,10 @@ body{
           <input class="fi" id="cluster-join-secret" dir="ltr" placeholder="secret از مرکزی" style="width:100%">
         </div>
         <div class="cl" style="margin-top:10px"><i class="ti ti-key"></i><span>توکن نود: <b dir="ltr" id="cluster-node-token">—</b></span></div>
+        <div class="cluster-sync-summary" id="cluster-sync-summary">کانفیگ‌های انتخاب‌شده از صفحه کانفیگ‌ها ارسال می‌شوند.</div>
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-p btn-sm" type="button" onclick="connectToCentral()"><i class="ti ti-plug-connected"></i> اتصال به مرکزی</button>
-          <button class="btn btn-g btn-sm" type="button" onclick="syncNodeToCentral()"><i class="ti ti-cloud-upload"></i> ارسال کانفیگ‌ها به مرکزی</button>
+          <button class="btn btn-g btn-sm" type="button" onclick="syncNodeToCentral()"><i class="ti ti-cloud-upload"></i> همگام‌سازی انتخاب‌ها</button>
         </div>
       </div>
       <div style="margin-top:14px">
@@ -3330,6 +3354,7 @@ async function loadLinks(){
     const subMap=Object.fromEntries(subs.map(s=>[s.sub_id,s.name]));
     grid.innerHTML=links.map(l=>{
   if(l.is_multi_group){return `<div class="multi-group-card"><div class="multi-group-head"><div><div class="multi-group-title"><i class="ti ti-layers-intersect"></i>${esc(l.label)}</div><div class="multi-protos">${(l.children||[]).map(k=>`<span>${esc((PROTO_MAP[k.protocol]||[k.protocol])[0])}</span>`).join('')||'<span>Multi</span>'}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><span class="badge bg-blue">${toFa(l.child_count||0)} پروتکل</span><button class="btn btn-sm btn-p" onclick="navigator.clipboard.writeText('${esc(l.sub_url)}').then(()=>toast('ساب مولتی کپی شد','ok'))"><i class="ti ti-copy"></i> ساب</button><button class="btn btn-sm btn-g" onclick="openSubLinks('${esc(l.sub_id)}','${esc(l.label)}')"><i class="ti ti-link-plus"></i> کانفیگ‌ها</button><button class="btn btn-sm btn-amber btn-icon" onclick="editSubQuick('${esc(l.sub_id)}','${esc(l.label)}')" title="ویرایش"><i class="ti ti-edit"></i></button><button class="btn btn-sm btn-g btn-icon" onclick="showQR('${esc(l.sub_url)}')"><i class="ti ti-qrcode"></i></button></div></div><div class="utxt"><span>مصرف کل: ${fmtB(l.used_bytes||0)}</span><span>${esc(l.sub_url||'')}</span></div></div>`}
+  if(l.remote_node){return `<div class="cfg-card remote-config-card"><div class="cfg-row"><span class="cfg-status-dot ${l.active?'pulse':''}"></span><div class="cfg-identity"><div class="cfg-label">${esc(l.label)}</div><div class="cfg-sub-meta"><span><i class="ti ti-server"></i> ${esc(l.node_name||'Node')}</span><span>${esc(l.node_region||'')}</span></div></div><div class="cfg-badges-col">${protoBadge(l.protocol)}<span class="cfg-sub-tag"><i class="ti ti-cloud-download"></i> دریافت‌شده از نود</span></div><div class="cfg-actions"><button class="btn btn-sm btn-g" onclick="navigator.clipboard.writeText('${esc(l.vless_link)}').then(()=>toast('لینک کپی شد','ok'))"><i class="ti ti-copy"></i> کپی</button></div></div></div>`}
   const lim=l.limit_bytes===0?'∞':fmtB(l.limit_bytes);
   const pct=l.limit_bytes===0?0:Math.min(100,l.used_bytes/l.limit_bytes*100);
   const bc=pct>90?'var(--red)':pct>70?'var(--amber)':'var(--accent)';
@@ -3366,6 +3391,7 @@ async function loadLinks(){
       </div>
       <div class="cfg-divider-v"></div>
       <div class="cfg-actions">
+        <button class="cluster-sync-btn${l.sync_to_central!==false?' on':''}" onclick="setConfigClusterSync('${l.uuid}',${l.sync_to_central===false})" title="${l.sync_to_central!==false?'ارسال به مرکزی فعال است':'ارسال به مرکزی غیرفعال است'}"><i class="ti ti-cloud-upload"></i></button>
         <button class="tog${allowed?' on':''}" onclick="toggleActive('${l.uuid}',${!l.active})" title="فعال/غیرفعال"></button>
         ${adBtn}
         <button class="btn btn-sm btn-g btn-icon" onclick="navigator.clipboard.writeText('${esc(l.vless_link)}').then(()=>toast('لینک کپی شد','ok'))" title="کپی لینک"><i class="ti ti-copy"></i></button>
@@ -3582,7 +3608,7 @@ async function createLink(){
   const isMt = protocol === 'mtproto';
   const mtproto_port = isMt ? (document.getElementById('nl-mtproto-port').value || null) : null;
   const mtproto_domain = isMt ? (document.getElementById('nl-mtproto-domain').value.trim() || null) : null;
-  const body={label,custom_path,limit_value:val||0,limit_unit:unit,expires_days:exp||0,note,sub_id,protocol,mtproto_port,mtproto_domain};
+  const body={label,custom_path,limit_value:val||0,limit_unit:unit,expires_days:exp||0,note,sub_id,protocol,mtproto_port,mtproto_domain,sync_to_central:(document.getElementById('nl-sync-central')||{}).checked!==false};
   if(protocol==='vless-tcp'){
     body.tcp_domain=(document.getElementById('nl-tcp-domain').value||'').trim()||null;
     body.tcp_port=document.getElementById('nl-tcp-port').value||null;
@@ -3649,6 +3675,13 @@ async function saveEditLink(){
 }
 async function toggleActive(uuid,newState){
   try{const r=await authF('/api/links/'+uuid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:newState})});if(!r.ok)throw new Error();toast(newState?'فعال شد ':'غیرفعال شد','ok');loadLinks();}catch(e){toast('خطا','err')}
+}
+async function setConfigClusterSync(uuid,enabled){
+  try{
+    const r=await authF('/api/links/'+uuid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({sync_to_central:enabled})});
+    const d=await r.json().catch(()=>({})); if(!r.ok)throw new Error(d.detail||'خطا');
+    toast(enabled?'برای ارسال به مرکزی انتخاب شد':'از ارسال به مرکزی خارج شد','ok'); loadLinks();
+  }catch(e){toast(String(e.message||e),'err')}
 }
 async function resetUsage(uuid){
   try{const r=await authF('/api/links/'+uuid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({reset_usage:true})});if(!r.ok)throw new Error();toast('مصرف ریست شد ','ok');loadLinks();}catch(e){toast('خطا','err')}
@@ -4125,6 +4158,7 @@ async function loadClusterStatus(){
     set('cluster-central-url', c.central_url||'');
     const sec=document.getElementById('cluster-secret'); if(sec) sec.value=c.cluster_secret||'';
     const tok=document.getElementById('cluster-node-token'); if(tok) tok.textContent=c.node_token||'—';
+    const summary=document.getElementById('cluster-sync-summary'); if(summary) summary.textContent=d.role==='central'?`${toFa(d.remote_config_count||0)} کانفیگ از نودها دریافت شده`:`${toFa(d.selected_local_count||0)} کانفیگ برای ارسال انتخاب شده`;
     clusterRoleChanged();
     const list=document.getElementById('cluster-nodes-list');
     if(list && d.role==='central'){
@@ -4332,7 +4366,7 @@ async function createCustomer(){const name=document.getElementById('cust-name').
 async function deleteCustomer(id){if(!confirm('حذف کاربر؟'))return;await authF('/api/customers/'+id,{method:'DELETE'});toast('حذف شد','ok');loadCustomers()}
 async function loadSecuritySettings(){try{const r=await authF('/api/settings'),d=await r.json();const sec=d.settings.security||{};document.getElementById('sec-max').value=sec.max_attempts||5;document.getElementById('sec-min').value=sec.lock_minutes||10;document.getElementById('sec-ips').value=(sec.allowed_ips||[]).join(',')}catch(e){}}
 async function saveSecuritySettings(){const max_attempts=Number(document.getElementById('sec-max').value||5),lock_minutes=Number(document.getElementById('sec-min').value||10),allowed_ips=document.getElementById('sec-ips').value.split(',').map(x=>x.trim()).filter(Boolean);try{await authF('/api/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({security:{max_attempts,lock_minutes,allowed_ips}})});toast('تنظیمات امنیت ذخیره شد','ok')}catch(e){toast('خطا','err')}}
-applyAccent(selectedThemeColor);
+// Accent is fixed by the calm design system; legacy theme-studio hook removed.
 
 async function changePw(){
   const cur=document.getElementById('cp-cur').value,nw=document.getElementById('cp-new').value,cf=document.getElementById('cp-cf').value;

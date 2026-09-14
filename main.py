@@ -1155,6 +1155,17 @@ async def subscription_all(_=Depends(require_auth)):
         for uid, d in LINKS.items():
             if is_link_allowed(d):
                 lines.extend(_share_lines_for_all_domains(uid, d, host))
+    # On a central panel, node-provided share URIs are first-class members of /sub-all.
+    if _cluster_role() == "central":
+        async with NODES_LOCK:
+            for node in NODES.values():
+                for cfg in node.get("configs") or []:
+                    if isinstance(cfg, dict) and _as_bool(cfg.get("active", True)):
+                        uri = str(cfg.get("uri") or "").strip()
+                        if uri:
+                            lines.append(uri)
+    # Keep the subscription deterministic and remove accidental duplicate URIs.
+    lines = list(dict.fromkeys(lines))
     content = base64.b64encode("\n".join(lines).encode()).decode()
     return Response(content=content, media_type="text/plain")
 
@@ -2077,6 +2088,7 @@ async def create_link(request: Request, _=Depends(require_auth)):
                     "multi_group_id": sub_id,
                     "multi_group_path": base_path,
                     "ad_tag": None,
+                    "sync_to_central": True,
                 }
                 sub["link_ids"].append(muid)
                 links_out.append({"uuid": muid, "path": mpath, "protocol": p, "vless_link": generate_share_link(muid, host, remark=f"OXNET-{label}-{p}", protocol=p)})
@@ -2101,6 +2113,7 @@ async def create_link(request: Request, _=Depends(require_auth)):
         "protocol": protocol,
         "path": public_path,
         "ad_tag": None,
+        "sync_to_central": _as_bool(body.get("sync_to_central", True)),
     }
 
     if protocol == "mtproto":
@@ -2207,6 +2220,33 @@ async def list_links(_=Depends(require_auth)):
             "vless_link": generate_share_link(uid, host, remark=f"OXNET-{d['label']}", protocol=proto),
             "sub_url": f"https://{host}/sub/{d.get('path') or uid}",
         })
+    if _cluster_role() == "central":
+        async with NODES_LOCK:
+            for node_id, node in NODES.items():
+                for idx, cfg in enumerate(node.get("configs") or []):
+                    if not isinstance(cfg, dict):
+                        continue
+                    uri = str(cfg.get("uri") or "").strip()
+                    if not uri:
+                        continue
+                    result.append({
+                        "uuid": f"remote:{node_id}:{cfg.get('source_id') or idx}",
+                        "label": cfg.get("label") or "Node config",
+                        "protocol": cfg.get("protocol") or "remote",
+                        "active": _as_bool(cfg.get("active", True)),
+                        "allowed": _as_bool(cfg.get("active", True)),
+                        "expired": False,
+                        "used_bytes": 0,
+                        "limit_bytes": 0,
+                        "created_at": node.get("last_seen") or node.get("created_at") or datetime.now().isoformat(),
+                        "vless_link": uri,
+                        "sub_url": "",
+                        "remote_node": True,
+                        "node_id": node_id,
+                        "node_name": node.get("name") or "Node",
+                        "node_region": node.get("region") or "",
+                        "sync_to_central": True,
+                    })
     result.sort(key=lambda x: x.get("created_at") or "", reverse=True)
     return {"links": result}
 
@@ -2245,6 +2285,9 @@ async def update_link(uid: str, request: Request, _=Depends(require_auth)):
             link["label"] = str(body["label"])[:60]
         if "note" in body:
             link["note"] = str(body["note"])[:200]
+        if "sync_to_central" in body:
+            link["sync_to_central"] = _as_bool(body.get("sync_to_central"))
+            log_activity("system", f"ارسال کانفیگ «{link.get('label', label)}» به مرکزی {'فعال' if link['sync_to_central'] else 'غیرفعال'} شد", "info")
         if "reset_usage" in body and body["reset_usage"]:
             link["used_bytes"] = 0
             log_activity("link", f"مصرف کانفیگ «{label}» ریست شد", "info")
@@ -2969,6 +3012,8 @@ async def api_cluster_status(_=Depends(require_auth)):
         },
         "nodes": nodes_snap if role == "central" else [],
         "local_host": get_host(),
+        "remote_config_count": sum(len(n.get("configs") or []) for n in NODES.values()) if role == "central" else 0,
+        "selected_local_count": sum(1 for l in LINKS.values() if _as_bool(l.get("sync_to_central", True))) if role == "node" else 0,
     }
 
 
@@ -3077,6 +3122,7 @@ async def api_cluster_push(request: Request):
                 "uri": uri[:2000],
                 "protocol": str(item.get("protocol") or "")[:40],
                 "active": bool(item.get("active", True)),
+                "source_id": str(item.get("source_id") or "")[:80],
             })
     nid = node["id"]
     async with NODES_LOCK:
@@ -3183,6 +3229,8 @@ async def api_cluster_sync_now(_=Depends(require_auth)):
                 continue
             if link.get("is_multi_child"):
                 continue
+            if not _as_bool(link.get("sync_to_central", True)):
+                continue
             proto = link.get("protocol") or DEFAULT_PROTOCOL
             if proto == "multi":
                 continue
@@ -3195,6 +3243,7 @@ async def api_cluster_sync_now(_=Depends(require_auth)):
                 "uri": uri,
                 "protocol": proto,
                 "active": True,
+                "source_id": uid,
             })
     payload = {
         "name": c.get("node_name") or host,
