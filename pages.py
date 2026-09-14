@@ -3919,22 +3919,24 @@ async function saveSubLinks(){
   }catch(e){toast('خطا در ذخیره','err')}
 }
 async function cutOrphanConfigs(){
-  if(!confirm('همه کانفیگ‌هایی که اشتراک‌شان حذف شده یا نامعتبر است قطع شوند؟'))return;
+  if(!confirm('همه کانفیگ‌هایی که اشتراک‌شان حذف شده یا نامعتبر است قطع شوند؟ (محلی + نود)'))return;
   try{
     const r=await authF('/api/links/cut-orphans',{method:'POST'});
     if(!r.ok)throw new Error();
     const d=await r.json();
-    toast((d.cut||0)+' کانفیگ یتیم قطع شد','ok');
+    const extra=d.remote_cut?` · نود: ${toFa(d.remote_cut)}`:'';
+    toast((d.cut||0)+' کانفیگ یتیم قطع شد'+extra,'ok');
     loadLinks();loadSubs();
   }catch(e){toast('خطا در قطع یتیم‌ها','err')}
 }
 async function cutInactiveSubConfigs(){
-  if(!confirm('کانفیگ‌های متصل به اشتراک‌های غیرفعال/حذف‌شده قطع شوند؟'))return;
+  if(!confirm('کانفیگ‌های متصل به اشتراک‌های غیرفعال/حذف‌شده قطع شوند؟ (محلی + نود)'))return;
   try{
     const r=await authF('/api/links/cut-inactive-subs',{method:'POST'});
     if(!r.ok)throw new Error();
     const d=await r.json();
-    toast((d.cut||0)+' کانفیگ قطع شد','ok');
+    const extra=d.remote_cut?` · نود: ${toFa(d.remote_cut)}`:'';
+    toast((d.cut||0)+' کانفیگ قطع شد'+extra,'ok');
     loadLinks();loadSubs();
   }catch(e){toast('خطا','err')}
 }

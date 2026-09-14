@@ -427,6 +427,10 @@ async def _mtproto_usage_callback(uuid: str, n_bytes: int) -> bool:
         link["used_bytes"] += n_bytes
         stats["total_bytes"] += n_bytes
         bump_hourly(n_bytes)
+        _charge_local_link_to_sub(uuid, n_bytes)
+    # اگر این پنل نود است، مصرف را به مرکزی بفرست
+    if _cluster_role() == "node":
+        asyncio.create_task(report_usage_to_central(uuid, n_bytes))
     return True
 
 mtproto.set_usage_callback(_mtproto_usage_callback)
@@ -869,12 +873,58 @@ def is_link_expired(link: dict) -> bool:
     except Exception:
         return False
 
+def _sub_effective_limit(sub: dict | None) -> int:
+    """سقف حجم اشتراک: limit_bytes خود ساب، وگرنه بزرگ‌ترین limit کانفیگ‌های محلی‌اش."""
+    if not sub:
+        return 0
+    try:
+        sl = int(sub.get("limit_bytes") or 0)
+    except Exception:
+        sl = 0
+    if sl > 0:
+        return sl
+    best = 0
+    for lid in sub.get("link_ids") or []:
+        lid = str(lid)
+        if _is_remote_link_id(lid):
+            continue
+        link = LINKS.get(lid)
+        if not link:
+            continue
+        try:
+            lb = int(link.get("limit_bytes") or 0)
+        except Exception:
+            lb = 0
+        if lb > best:
+            best = lb
+    return best
+
+
+def _sub_used_bytes(sub: dict | None) -> int:
+    if not sub:
+        return 0
+    try:
+        return int(sub.get("used_bytes") or 0)
+    except Exception:
+        return 0
+
+
+def _sub_quota_exceeded(sub: dict | None) -> bool:
+    lim = _sub_effective_limit(sub)
+    if lim <= 0:
+        return False
+    return _sub_used_bytes(sub) >= lim
+
+
 def is_link_allowed(link: dict | None) -> bool:
     if link is None:
         return False
     if not _as_bool(link.get("active", True)):
         return False
     if is_link_expired(link):
+        return False
+    # اگر مرکزی سهمیه نود را پر اعلام کرده
+    if link.get("central_quota_exceeded"):
         return False
     lb = link.get("limit_bytes", 0)
     try:
@@ -888,21 +938,24 @@ def is_link_allowed(link: dict | None) -> bool:
         used = 0
     if lb > 0 and used >= lb:
         return False
-    # ساب والد / گروه مولتی
+    # ساب والد / گروه مولتی + سهمیه تجمیعی اشتراک
     sub_id = link.get("sub_id")
     multi_id = link.get("multi_group_id")
     if sub_id:
         sub = SUBS.get(sub_id)
         if sub is None:
-            # ساب حذف شده — کانفیگ قطع است تا دستی دوباره فعال نشود بدون پاک‌سازی
             return False
         if _as_bool(sub.get("active", True)) is False:
+            return False
+        if _sub_quota_exceeded(sub):
             return False
     if multi_id:
         msub = SUBS.get(multi_id)
         if msub is None:
             return False
         if _as_bool(msub.get("active", True)) is False:
+            return False
+        if _sub_quota_exceeded(msub):
             return False
     return True
 
@@ -1183,6 +1236,17 @@ async def create_sub(request: Request, _=Depends(require_auth)):
     name = (body.get("name") or "گروه جدید").strip()[:60]
     desc = (body.get("desc") or "").strip()[:200]
     password = (body.get("password") or "").strip()
+    # سقف حجم اشتراک (برای کسر مصرف نودها از همین گیگ)
+    limit_bytes = 0
+    try:
+        if body.get("limit_bytes") is not None:
+            limit_bytes = int(body.get("limit_bytes") or 0)
+        elif body.get("limit_value") is not None:
+            limit_bytes = 0 if float(body.get("limit_value") or 0) <= 0 else parse_size_to_bytes(
+                float(body.get("limit_value") or 0), body.get("limit_unit") or "GB"
+            )
+    except Exception:
+        limit_bytes = 0
     sub_id = generate_uuid()
     uuid_key = secrets.token_urlsafe(16)
     async with SUBS_LOCK:
@@ -1194,6 +1258,8 @@ async def create_sub(request: Request, _=Depends(require_auth)):
             "created_at": datetime.now().isoformat(),
             "link_ids": [],
             "active": True,
+            "limit_bytes": limit_bytes,
+            "used_bytes": 0,
         }
     await save_state()
     log_activity("sub", f"گروه «{name}» ساخته شد", "ok")
@@ -1216,18 +1282,25 @@ async def list_subs(_=Depends(require_auth)):
     for sid, s in snap_subs.items():
         link_ids = s.get("link_ids", [])
         active_count = 0
-        total_used = 0
+        local_used = 0
         for lid in link_ids:
             lid = str(lid)
             if _is_remote_link_id(lid):
                 cfg = _resolve_remote_config(lid)
-                if cfg and cfg.get("active"):
+                if cfg and _as_bool(cfg.get("active", True)):
                     active_count += 1
                 continue
             if is_link_allowed(snap_links.get(lid)):
                 active_count += 1
             if lid in snap_links:
-                total_used += snap_links[lid].get("used_bytes", 0)
+                local_used += int(snap_links[lid].get("used_bytes") or 0)
+        # مصرف تجمیعی اشتراک (نود+محلی) اولویت دارد
+        try:
+            sub_used = int(s.get("used_bytes") or 0)
+        except Exception:
+            sub_used = 0
+        total_used = max(sub_used, local_used)
+        sub_limit = _sub_effective_limit(s)
         result.append({
             "sub_id": sid,
             **s,
@@ -1238,6 +1311,9 @@ async def list_subs(_=Depends(require_auth)):
             "active_count": active_count,
             "total_used_bytes": total_used,
             "total_used_fmt": fmt_bytes(total_used),
+            "limit_bytes": sub_limit,
+            "limit_fmt": "∞" if sub_limit <= 0 else fmt_bytes(sub_limit),
+            "quota_exceeded": _sub_quota_exceeded(s),
             "public_url": f"https://{host}/p/{s['uuid_key']}",
             "sub_url": f"https://{host}/sub-group/{s['uuid_key']}",
             "cloudflare_subs": cloudflare_sub_urls_for_key(host, s["uuid_key"]),
@@ -1285,22 +1361,26 @@ def _resolve_remote_config(lid: str) -> dict | None:
 
 def _collect_sub_share_lines(sub: dict, host: str) -> tuple[list[str], list[dict]]:
     """خطوط share برای یک ساب: لینک‌های محلی + URIهای نود (بدون بازنویسی UUID نود)."""
+    if _sub_quota_exceeded(sub):
+        return [], []
     link_ids = list(sub.get("link_ids") or [])
     allowed_links: list[dict] = []
     lines: list[str] = []
+    sub_used = _sub_used_bytes(sub)
+    sub_lim = _sub_effective_limit(sub)
     for lid in link_ids:
         lid = str(lid)
         if _is_remote_link_id(lid):
             cfg = _resolve_remote_config(lid)
-            if not cfg or not cfg.get("active"):
+            if not cfg or not _as_bool(cfg.get("active", True)):
                 continue
             uri = cfg.get("uri") or ""
             if uri:
                 lines.append(uri)
                 allowed_links.append({
                     "label": cfg.get("label"),
-                    "used_bytes": 0,
-                    "limit_bytes": 0,
+                    "used_bytes": int(cfg.get("used_bytes") or 0) or sub_used,
+                    "limit_bytes": sub_lim,
                     "active": True,
                     "remote_node": True,
                 })
@@ -1309,26 +1389,117 @@ def _collect_sub_share_lines(sub: dict, host: str) -> tuple[list[str], list[dict
         if link and is_link_allowed(link):
             allowed_links.append(link)
             lines.extend(_share_lines_for_all_domains(lid, link, host, sub=sub))
-    # dedupe while preserving order
     lines = list(dict.fromkeys(lines))
     return lines, allowed_links
 
 
+def _charge_sub_usage(sub_id: str, n: int) -> None:
+    """مصرف را روی اشتراک مرکزی + یک کانفیگ محلی دارای سقف می‌نویسد."""
+    if n <= 0 or not sub_id:
+        return
+    sub = SUBS.get(sub_id)
+    if not sub:
+        return
+    sub["used_bytes"] = int(sub.get("used_bytes") or 0) + n
+    for lid in sub.get("link_ids") or []:
+        lid = str(lid)
+        if _is_remote_link_id(lid):
+            continue
+        link = LINKS.get(lid)
+        if not link:
+            continue
+        try:
+            lb = int(link.get("limit_bytes") or 0)
+        except Exception:
+            lb = 0
+        if lb > 0:
+            link["used_bytes"] = int(link.get("used_bytes") or 0) + n
+            break
+
+
+def _charge_local_link_to_sub(uuid: str, n: int) -> None:
+    """مصرف رله محلی را به used_bytes اشتراک والد هم اضافه کن."""
+    if n <= 0:
+        return
+    link = LINKS.get(uuid)
+    if not link:
+        return
+    for sid in (link.get("sub_id"), link.get("multi_group_id")):
+        if sid and sid in SUBS:
+            SUBS[sid]["used_bytes"] = int(SUBS[sid].get("used_bytes") or 0) + n
+
+
+async def report_usage_to_central(uuid: str, n_bytes: int) -> None:
+    """نود → مرکزی: گزارش بایت برای کسر از اشتراک مرکزی."""
+    if n_bytes <= 0:
+        return
+    if _cluster_role() != "node":
+        return
+    c = _cluster()
+    central = (c.get("central_url") or "").strip().rstrip("/")
+    token = (c.get("node_token") or "").strip()
+    if not central or not token:
+        return
+    if not central.startswith("http"):
+        central = "https://" + central
+    try:
+        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
+            r = await client.post(
+                f"{central}/api/cluster/usage",
+                headers={"X-Node-Token": token, "Authorization": f"Bearer {token}"},
+                json={"uuid": uuid, "source_id": uuid, "bytes": int(n_bytes)},
+            )
+            if r.status_code >= 400:
+                return
+            data = r.json() if r.content else {}
+            if data.get("allowed") is False:
+                async with LINKS_LOCK:
+                    if uuid in LINKS:
+                        LINKS[uuid]["central_quota_exceeded"] = True
+                await save_state()
+            elif data.get("allowed") is True:
+                async with LINKS_LOCK:
+                    if uuid in LINKS and LINKS[uuid].get("central_quota_exceeded"):
+                        LINKS[uuid]["central_quota_exceeded"] = False
+    except Exception as exc:
+        logger.debug("report_usage_to_central failed: %s", exc)
+
+
+def _set_remote_active(lid: str, active: bool) -> bool:
+    """active را روی کانفیگ نود در NODES ست می‌کند. True اگر پیدا شد."""
+    raw = str(lid or "")
+    if not raw.startswith("remote:"):
+        return False
+    parts = raw.split(":", 2)
+    if len(parts) < 3:
+        return False
+    _, node_id, src = parts
+    node = NODES.get(node_id)
+    if not node:
+        return False
+    found = False
+    for idx, cfg in enumerate(node.get("configs") or []):
+        if not isinstance(cfg, dict):
+            continue
+        key = str(cfg.get("source_id") if cfg.get("source_id") not in (None, "") else idx)
+        if key == src:
+            cfg["active"] = bool(active)
+            found = True
+    return found
+
+
 def _sync_sub_link_ids(sub_id: str, new_ids: list) -> int:
-    """Atomically set membership for one sub without stealing unrelated links.
-    Supports remote:{node}:{source} ids for node configs on central.
-    Returns number of links whose membership changed."""
+    """فقط membership همین ساب را عوض می‌کند — از ساب‌های دیگر (مثل Fam/Me) دزدی نمی‌کند.
+    remote و local هر دو می‌توانند در چند ساب همزمان باشند.
+    """
     new_set = []
     seen = set()
     for lid in new_ids or []:
         lid = str(lid)
         if not lid or lid in seen:
             continue
-        # فقط idهای معتبر: محلی موجود یا remote قابل resolve
         if _is_remote_link_id(lid):
-            if _resolve_remote_config(lid) is None and not lid.startswith("remote:"):
-                continue
-            # اجازه ذخیره حتی اگر موقتاً نود آفلاین باشد (uri بعداً resolve می‌شود)
+            # remote حتی اگر نود موقتاً آفلاین باشد قابل ذخیره است
             seen.add(lid)
             new_set.append(lid)
             continue
@@ -1337,28 +1508,28 @@ def _sync_sub_link_ids(sub_id: str, new_ids: list) -> int:
             new_set.append(lid)
 
     changed = 0
-    # remove this sub from other subs' lists for ids that move here
-    for other_id, other in SUBS.items():
-        if other_id == sub_id:
-            continue
-        oids = other.get("link_ids") or []
-        keep = [x for x in oids if x not in seen]
-        if len(keep) != len(oids):
-            other["link_ids"] = keep
-            changed += 1
-
+    # مهم: لیست بقیه ساب‌ها دست نخورده می‌ماند (باگ Me↔Fam)
     old_ids = set(SUBS[sub_id].get("link_ids") or [])
     SUBS[sub_id]["link_ids"] = new_set
     new_ids_set = set(new_set)
 
     for lid, link in LINKS.items():
+        if not isinstance(link, dict):
+            continue
         if lid in new_ids_set:
-            if link.get("sub_id") != sub_id:
-                link["sub_id"] = sub_id
-                changed += 1
+            # نمایش primary: اگر sub_id خالی بود یا همین ساب بود، همین را بگذار
+            if not link.get("sub_id") or link.get("sub_id") == sub_id:
+                if link.get("sub_id") != sub_id:
+                    link["sub_id"] = sub_id
+                    changed += 1
         elif link.get("sub_id") == sub_id and lid in old_ids and lid not in new_ids_set:
-            # removed from this sub only
-            link["sub_id"] = None
+            # از این ساب حذف شد — اگر هنوز در ساب دیگری هست به آن اشاره کن
+            other = next(
+                (sid for sid, s in SUBS.items()
+                 if sid != sub_id and lid in (s.get("link_ids") or [])),
+                None,
+            )
+            link["sub_id"] = other
             changed += 1
     return changed
 
@@ -1380,9 +1551,27 @@ async def update_sub(sub_id: str, request: Request, _=Depends(require_auth)):
         if "password" in body:
             pw = str(body["password"]).strip()
             s["password_hash"] = hash_password(pw) if pw else None
+        if "limit_bytes" in body:
+            try:
+                s["limit_bytes"] = max(0, int(body.get("limit_bytes") or 0))
+            except Exception:
+                pass
+        if "limit_value" in body:
+            try:
+                lv = float(body.get("limit_value") or 0)
+                s["limit_bytes"] = 0 if lv <= 0 else parse_size_to_bytes(lv, body.get("limit_unit") or "GB")
+            except Exception:
+                pass
+        if body.get("reset_usage"):
+            s["used_bytes"] = 0
         if "link_ids" in body:
             async with LINKS_LOCK:
                 membership_changed = _sync_sub_link_ids(sub_id, list(body.get("link_ids") or []))
+            # اگر ساب سقف نداشت، از کانفیگ‌های محلی‌اش بگیر
+            if int(s.get("limit_bytes") or 0) <= 0:
+                derived = _sub_effective_limit(s)
+                if derived > 0:
+                    s["limit_bytes"] = derived
         if "active" in body:
             s["active"] = _as_bool(body["active"])
             deactivated = not s["active"]
@@ -1390,7 +1579,7 @@ async def update_sub(sub_id: str, request: Request, _=Depends(require_auth)):
         link_ids = list(s.get("link_ids") or [])
 
     if deactivated:
-        # قطع سخت: active=False روی همه کانفیگ‌های وابسته
+        # قطع سخت: محلی + نود (remote)
         async with LINKS_LOCK:
             for lid in link_ids:
                 if lid in LINKS:
@@ -1398,7 +1587,11 @@ async def update_sub(sub_id: str, request: Request, _=Depends(require_auth)):
             for link in LINKS.values():
                 if link.get("sub_id") == sub_id or link.get("multi_group_id") == sub_id:
                     link["active"] = False
-        log_activity("sub", "اشتراک غیرفعال شد؛ کانفیگ‌های وابسته قطع شدند", "warn")
+        async with NODES_LOCK:
+            for lid in link_ids:
+                if _is_remote_link_id(lid):
+                    _set_remote_active(lid, False)
+        log_activity("sub", "اشتراک غیرفعال شد؛ کانفیگ‌های محلی و نود قطع شدند", "warn")
     if reactivated:
         async with LINKS_LOCK:
             for lid in link_ids:
@@ -1407,6 +1600,10 @@ async def update_sub(sub_id: str, request: Request, _=Depends(require_auth)):
             for link in LINKS.values():
                 if link.get("sub_id") == sub_id or link.get("multi_group_id") == sub_id:
                     link["active"] = True
+        async with NODES_LOCK:
+            for lid in link_ids:
+                if _is_remote_link_id(lid):
+                    _set_remote_active(lid, True)
         log_activity("sub", "اشتراک فعال شد و کانفیگ‌هایش روشن شدند", "ok")
     await save_state()
     return {
@@ -1423,8 +1620,9 @@ async def delete_sub(sub_id: str, _=Depends(require_auth)):
         name = SUBS[sub_id].get("name", sub_id)
         link_ids = list(SUBS[sub_id].get("link_ids") or [])
         del SUBS[sub_id]
-    # حذف اشتراک → همه کانفیگ‌های وابسته (و فرزندان مولتی) قطع شوند
+    # حذف اشتراک → محلی + نودهای فقط‌متصل‌به این ساب
     cut = 0
+    remote_cut = 0
     async with LINKS_LOCK:
         touched = set(link_ids)
         for lid, link in list(LINKS.items()):
@@ -1438,9 +1636,25 @@ async def delete_sub(sub_id: str, _=Depends(require_auth)):
                 if link.get("multi_group_id") == sub_id:
                     link["multi_group_id"] = None
                 cut += 1
+    async with NODES_LOCK:
+        # اگر remote فقط در این ساب بود → قطع؛ اگر در ساب دیگری هم هست → بماند
+        still_elsewhere = set()
+        for sid, s in SUBS.items():
+            for lid in s.get("link_ids") or []:
+                if _is_remote_link_id(str(lid)):
+                    still_elsewhere.add(str(lid))
+        for lid in link_ids:
+            lid = str(lid)
+            if not _is_remote_link_id(lid):
+                continue
+            if lid in still_elsewhere:
+                continue
+            if _set_remote_active(lid, False):
+                remote_cut += 1
+                cut += 1
     await save_state()
-    log_activity("sub", f"گروه «{name}» حذف شد و {cut} کانفیگ قطع شد", "warn")
-    return {"ok": True, "deleted": sub_id, "deactivated_links": cut}
+    log_activity("sub", f"گروه «{name}» حذف شد و {cut} کانفیگ قطع شد (نود={remote_cut})", "warn")
+    return {"ok": True, "deleted": sub_id, "deactivated_links": cut, "remote_cut": remote_cut}
 
 @app.post("/api/subs/{sub_id}/links")
 async def assign_link_to_sub(sub_id: str, request: Request, _=Depends(require_auth)):
@@ -1455,32 +1669,39 @@ async def assign_link_to_sub(sub_id: str, request: Request, _=Depends(require_au
         if action == "add":
             if link_id not in ids:
                 ids.append(link_id)
-            # از بقیه گروه‌ها بیرون بیاید
-            for other_id, other in SUBS.items():
-                if other_id == sub_id:
-                    continue
-                oids = other.get("link_ids") or []
-                if link_id in oids:
-                    other["link_ids"] = [x for x in oids if x != link_id]
+            # دیگر از بقیه ساب‌ها حذف نمی‌کنیم (جلوگیری از باگ Me↔Fam)
         else:
             if link_id in ids:
                 ids.remove(link_id)
     async with LINKS_LOCK:
         if link_id in LINKS:
             if action == "add":
-                LINKS[link_id]["sub_id"] = sub_id
+                if not LINKS[link_id].get("sub_id"):
+                    LINKS[link_id]["sub_id"] = sub_id
             elif LINKS[link_id].get("sub_id") == sub_id:
-                LINKS[link_id]["sub_id"] = None
+                other = next(
+                    (sid for sid, sub in SUBS.items()
+                     if sid != sub_id and link_id in (sub.get("link_ids") or [])),
+                    None,
+                )
+                LINKS[link_id]["sub_id"] = other
     await save_state()
     return {"ok": True}
 
 
 @app.post("/api/links/cut-orphans")
 async def cut_orphan_links(_=Depends(require_auth)):
-    """قطع کانفیگ‌هایی که هنوز فعال‌اند ولی اشتراک والدشان حذف/نامعتبر است."""
+    """قطع کانفیگ‌های محلی و نود که اشتراک والدشان حذف/نامعتبر است."""
     cut_ids = []
+    remote_cut = 0
     async with SUBS_LOCK:
         valid_subs = set(SUBS.keys())
+        # همه remoteهایی که هنوز در حداقل یک ساب معتبر هستند
+        remotes_in_valid = set()
+        for sid, s in SUBS.items():
+            for lid in s.get("link_ids") or []:
+                if _is_remote_link_id(str(lid)):
+                    remotes_in_valid.add(str(lid))
         async with LINKS_LOCK:
             for lid, link in LINKS.items():
                 sid = link.get("sub_id")
@@ -1496,18 +1717,44 @@ async def cut_orphan_links(_=Depends(require_auth)):
                     if mid and mid not in valid_subs:
                         link["multi_group_id"] = None
                     cut_ids.append(lid)
+        async with NODES_LOCK:
+            # کانفیگ نودی که در هیچ ساب معتبری نیست → غیرفعال
+            for node_id, node in NODES.items():
+                for idx, cfg in enumerate(node.get("configs") or []):
+                    if not isinstance(cfg, dict):
+                        continue
+                    key = str(cfg.get("source_id") if cfg.get("source_id") not in (None, "") else idx)
+                    rid = f"remote:{node_id}:{key}"
+                    if rid not in remotes_in_valid and _as_bool(cfg.get("active", True)):
+                        cfg["active"] = False
+                        remote_cut += 1
+                        cut_ids.append(rid)
     await save_state()
-    log_activity("system", f"قطع یتیم‌ها: {len(cut_ids)} کانفیگ", "warn")
-    return {"ok": True, "cut": len(cut_ids), "ids": cut_ids}
+    total = len(cut_ids)
+    log_activity("system", f"قطع یتیم‌ها: {total} (نود={remote_cut})", "warn")
+    return {"ok": True, "cut": total, "remote_cut": remote_cut, "ids": cut_ids}
 
 
 @app.post("/api/links/cut-inactive-subs")
 async def cut_inactive_sub_links(_=Depends(require_auth)):
-    """قطع همه کانفیگ‌های متصل به اشتراک‌های غیرفعال + یتیم‌ها."""
+    """قطع همه کانفیگ‌های محلی و نود متصل به اشتراک‌های غیرفعال + یتیم‌ها."""
     cut_ids = []
+    remote_cut = 0
     async with SUBS_LOCK:
         inactive = {sid for sid, s in SUBS.items() if _as_bool(s.get("active", True)) is False}
         valid = set(SUBS.keys())
+        # remoteهایی که فقط به ساب‌های غیرفعال وصل‌اند
+        remotes_active_sub = set()
+        remotes_inactive_sub = set()
+        for sid, s in SUBS.items():
+            for lid in s.get("link_ids") or []:
+                lid = str(lid)
+                if not _is_remote_link_id(lid):
+                    continue
+                if sid in inactive:
+                    remotes_inactive_sub.add(lid)
+                else:
+                    remotes_active_sub.add(lid)
         async with LINKS_LOCK:
             for lid, link in LINKS.items():
                 sid = link.get("sub_id")
@@ -1524,9 +1771,18 @@ async def cut_inactive_sub_links(_=Depends(require_auth)):
                     link["sub_id"] = None
                 if mid and mid not in valid:
                     link["multi_group_id"] = None
+        async with NODES_LOCK:
+            for rid in remotes_inactive_sub:
+                # اگر هنوز در یک ساب فعال هم هست، قطع نکن
+                if rid in remotes_active_sub:
+                    continue
+                if _set_remote_active(rid, False):
+                    remote_cut += 1
+                    cut_ids.append(rid)
     await save_state()
-    log_activity("system", f"قطع کانفیگ‌های اشتراک‌های غیرفعال/حذف‌شده: {len(cut_ids)}", "warn")
-    return {"ok": True, "cut": len(cut_ids), "ids": cut_ids}
+    total = len(cut_ids)
+    log_activity("system", f"قطع اشتراک‌های غیرفعال: {total} (نود={remote_cut})", "warn")
+    return {"ok": True, "cut": total, "remote_cut": remote_cut, "ids": cut_ids}
 
 # ── Public sub-group subscription file ───────────────────────────────────────
 @app.get("/sub-group/{uuid_key}")
@@ -2817,8 +3073,8 @@ async def api_smart_subscription(request: Request, _=Depends(require_auth)):
     protocols = SETTINGS.get("smart_profiles", {}).get(profile) or SETTINGS["smart_profiles"]["general"]
     fake = {"label": label, "protocol": "multi", "custom_path": body.get("custom_path"), "limit_value": body.get("limit_value", 0), "limit_unit": body.get("limit_unit", "GB"), "expires_days": body.get("expires_days", 0), "note": "Smart Subscription"}
     host=get_host(); base_path=await unique_config_path(normalize_config_path(fake.get("custom_path")), generate_uuid()[:8]); sub_id=generate_uuid(); uuid_key=base_path
-    sub={"name":label,"desc":f"Smart Subscription · {profile}","uuid_key":uuid_key,"password_hash":None,"created_at":datetime.now().isoformat(),"link_ids":[],"smart_profile":profile}
     limit_bytes=0 if float(fake.get("limit_value") or 0)<=0 else parse_size_to_bytes(float(fake.get("limit_value") or 0), fake.get("limit_unit") or "GB")
+    sub={"name":label,"desc":f"Smart Subscription · {profile}","uuid_key":uuid_key,"password_hash":None,"created_at":datetime.now().isoformat(),"link_ids":[],"smart_profile":profile,"limit_bytes":limit_bytes,"used_bytes":0}
     expires_at=(datetime.now()+timedelta(days=int(fake.get("expires_days") or 0))).isoformat() if int(fake.get("expires_days") or 0)>0 else None
     async with LINKS_LOCK:
         for proto in protocols:
@@ -3251,6 +3507,74 @@ async def api_cluster_push(request: Request):
             NODES[nid]["host"] = h[:120]
     await save_state()
     return {"ok": True, "accepted": len(clean)}
+
+
+@app.post("/api/cluster/usage")
+async def api_cluster_usage(request: Request):
+    """نود → مرکزی: گزارش مصرف تا از سهمیه اشتراک مرکزی کم شود."""
+    if _cluster_role() != "central":
+        raise HTTPException(status_code=403, detail="این پنل مرکزی نیست")
+    node = _verify_node_token(request)
+    if not node:
+        raise HTTPException(status_code=401, detail="node token نامعتبر است")
+    body = await request.json()
+    try:
+        n = int(body.get("bytes") or body.get("n") or 0)
+    except Exception:
+        n = 0
+    if n <= 0:
+        return {"ok": True, "allowed": True, "charged": 0}
+    uuid_key = str(body.get("uuid") or body.get("source_id") or "").strip()
+    if not uuid_key:
+        return {"ok": True, "allowed": True, "charged": 0}
+
+    nid = node["id"]
+    matched_rids: list[str] = []
+    async with NODES_LOCK:
+        node_rec = NODES.get(nid) or {}
+        for idx, cfg in enumerate(node_rec.get("configs") or []):
+            if not isinstance(cfg, dict):
+                continue
+            sid = str(cfg.get("source_id") if cfg.get("source_id") not in (None, "") else idx)
+            # source_id مثل uuid:main یا uuid:extra:...
+            if sid == uuid_key or sid.startswith(uuid_key + ":") or uuid_key.startswith(sid.split(":")[0]):
+                cfg["used_bytes"] = int(cfg.get("used_bytes") or 0) + n
+                matched_rids.append(f"remote:{nid}:{sid}")
+        # اگر هیچ match نبود، با خود uuid به‌عنوان source
+        if not matched_rids:
+            matched_rids.append(f"remote:{nid}:{uuid_key}")
+
+    charged_subs: list[str] = []
+    async with SUBS_LOCK:
+        async with LINKS_LOCK:
+            for sid, s in SUBS.items():
+                lids = [str(x) for x in (s.get("link_ids") or [])]
+                if not any(r in lids for r in matched_rids):
+                    continue
+                _charge_sub_usage(sid, n)
+                charged_subs.append(sid)
+
+    allowed = True
+    for sid in charged_subs:
+        if _sub_quota_exceeded(SUBS.get(sid)):
+            allowed = False
+            break
+    # اگر هیچ ساب‌ی match نشد، همچنان ok (ممکن است هنوز به ساب وصل نباشد)
+    if not charged_subs:
+        allowed = True
+
+    # ذخیرهٔ دوره‌ای سبک — هر بار ننویس؛ فقط وقتی شارژ شده
+    if charged_subs:
+        await save_state()
+    bump_hourly(n)
+    stats["total_bytes"] = int(stats.get("total_bytes") or 0) + n
+    return {
+        "ok": True,
+        "allowed": allowed,
+        "charged": n,
+        "subs": charged_subs,
+        "matched": matched_rids[:20],
+    }
 
 
 @app.get("/api/cluster/nodes")

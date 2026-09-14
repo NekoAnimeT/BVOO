@@ -110,6 +110,18 @@ async def check_and_use(uid: str, n: int) -> bool:
         link["used_bytes"] = int(link.get("used_bytes") or 0) + total
         stats["total_bytes"] += int(n or 0)
         bump_hourly(total)
+        try:
+            from main import _charge_local_link_to_sub
+            _charge_local_link_to_sub(uid, total)
+        except Exception:
+            pass
+    # نود: مصرف را به مرکزی بفرست تا از گیگ اشتراک کم شود
+    try:
+        from main import _cluster_role, report_usage_to_central
+        if _cluster_role() == "node":
+            asyncio.create_task(report_usage_to_central(uid, total))
+    except Exception:
+        pass
     return True
 
 async def relay_ws_to_tcp(ws: WebSocket, writer: asyncio.StreamWriter, conn_id: str, uid: str):
