@@ -73,9 +73,19 @@ logger.info(f"DATA_DIR={DATA_DIR} (mount a Volume on /data to survive redeploys)
 
 
 def _get_or_create_secret() -> str:
-    env_secret = os.environ.get("SECRET_KEY")
+    """اولویت با Environment Variable — برای Free tier (Koyeb و …) ضروری است.
+    مقدار secret هرگز در لاگ چاپ نمی‌شود.
+    """
+    env_secret = (os.environ.get("SECRET_KEY") or "").strip()
     if env_secret:
+        logger.info("SECRET_KEY از Environment Variable بارگذاری شد.")
         return env_secret
+    # بدون env: رفتار قبلی development (فایل یا موقت) + هشدار
+    logger.warning(
+        "SECRET_KEY در Environment تنظیم نشده؛ روی Free Hostingهای ephemeral "
+        "(مثل Koyeb بدون Volume) بعد از ری‌استارت ممکن است Login خراب شود. "
+        "SECRET_KEY ثابت در env تنظیم کنید."
+    )
     try:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         if SECRET_FILE.exists():
@@ -1178,12 +1188,8 @@ async def root():
 @app.get("/health")
 @app.get("/healthz")
 async def health():
-    return {
-        "status": "ok",
-        "sessions": len(connections),
-        "uptime": uptime(),
-        "version": get_current_panel_version(),
-    }
+    """Health سبک برای Koyeb / Railway / reverse proxy — بدون auth و بدون IO سنگین."""
+    return {"status": "ok"}
 
 # ── Subscription (single link) ────────────────────────────────────────────────
 @app.get("/sub/{uuid}")
@@ -1901,11 +1907,9 @@ async def get_stats(_=Depends(require_auth)):
 async def get_activity(_=Depends(require_auth)):
     return {"logs": list(activity_logs)[-150:]}
 
-# ── Live connections (with IP) ────────────────────────────────────────────────
-@app.get("/api/connections")
-async def get_connections(_=Depends(require_auth)):
-    async with LINKS_LOCK:
-        snap = dict(LINKS)
+def _local_connections_snapshot() -> list[dict]:
+    """اتصالات زنده همین پنل — برای گزارش به مرکزی."""
+    snap = dict(LINKS)
     grouped: dict[str, dict] = {}
     for conn_id, c in connections.items():
         ip = c.get("ip", "نامشخص")
@@ -1924,7 +1928,7 @@ async def get_connections(_=Depends(require_auth)):
             }
             grouped[ip] = g
         g["sessions"] += 1
-        g["bytes"] += c.get("bytes", 0)
+        g["bytes"] += int(c.get("bytes") or 0)
         g["labels"].add(label)
         g["transports"].add(c.get("transport", "vless-ws"))
         ca = c.get("connected_at")
@@ -1933,25 +1937,28 @@ async def get_connections(_=Depends(require_auth)):
                 g["first_connected_at"] = ca
             if not g["last_connected_at"] or ca > g["last_connected_at"]:
                 g["last_connected_at"] = ca
-    for uid, link in snap.items():
-        if link.get("protocol") == "mtproto":
-            label = link.get("label", "نامشخص")
-            for c in mtproto.get_instance_connections(uid):
-                ip = c["ip"]
-                g = grouped.get(ip)
-                if g is None:
-                    g = {
-                        "ip": ip, "sessions": 0, "bytes": 0,
-                        "labels": set(), "transports": set(),
-                        "first_connected_at": None, "last_connected_at": None,
-                    }
-                    grouped[ip] = g
-                g["sessions"] += 1
-                g["labels"].add(label)
-                g["transports"].add("mtproto")
-    result = []
+    try:
+        for uid, link in snap.items():
+            if link.get("protocol") == "mtproto":
+                label = link.get("label", "نامشخص")
+                for c in mtproto.get_instance_connections(uid):
+                    ip = c["ip"]
+                    g = grouped.get(ip)
+                    if g is None:
+                        g = {
+                            "ip": ip, "sessions": 0, "bytes": 0,
+                            "labels": set(), "transports": set(),
+                            "first_connected_at": None, "last_connected_at": None,
+                        }
+                        grouped[ip] = g
+                    g["sessions"] += 1
+                    g["labels"].add(label)
+                    g["transports"].add("mtproto")
+    except Exception:
+        pass
+    out = []
     for ip, g in grouped.items():
-        result.append({
+        out.append({
             "ip": ip,
             "sessions": g["sessions"],
             "labels": sorted(g["labels"]),
@@ -1962,11 +1969,105 @@ async def get_connections(_=Depends(require_auth)):
             "connected_at": g["first_connected_at"],
             "last_connected_at": g["last_connected_at"],
         })
+    return out
+
+
+# ── Live connections (with IP) ────────────────────────────────────────────────
+@app.get("/api/connections")
+async def get_connections(_=Depends(require_auth)):
+    """اتصالات محلی + در نقش مرکزی، اتصالات زنده نودها (pull)."""
+    local = _local_connections_snapshot()
+    # کلید یکتا: ip + source تا نود و مرکزی قاطی نشوند
+    result = []
+    for row in local:
+        result.append({**row, "source": "local", "node_name": "مرکزی"})
+
+    node_raw = 0
+    if _cluster_role() == "central":
+        async with NODES_LOCK:
+            nodes_snap = [
+                {
+                    "id": nid,
+                    "name": n.get("name") or nid[:8],
+                    "host": n.get("host") or "",
+                    "token": n.get("token") or "",
+                }
+                for nid, n in NODES.items()
+            ]
+        for ninfo in nodes_snap:
+            host = (ninfo.get("host") or "").strip()
+            token = (ninfo.get("token") or "").strip()
+            if not host or not token:
+                continue
+            base = host if host.startswith("http") else f"https://{host}"
+            base = base.rstrip("/")
+            try:
+                async with httpx.AsyncClient(timeout=4.0, follow_redirects=True) as client:
+                    r = await client.get(
+                        f"{base}/api/cluster/peer-connections",
+                        headers={"X-Node-Token": token, "Authorization": f"Bearer {token}"},
+                    )
+                    if r.status_code >= 400:
+                        continue
+                    data = r.json() if r.content else {}
+                    rows = data.get("connections") or []
+                    node_raw += int(data.get("raw_count") or len(rows))
+                    for row in rows:
+                        if not isinstance(row, dict):
+                            continue
+                        labels = list(row.get("labels") or [])
+                        label = row.get("label") or " · ".join(labels) or "نامشخص"
+                        result.append({
+                            "ip": row.get("ip") or "نامشخص",
+                            "sessions": int(row.get("sessions") or 0),
+                            "labels": labels,
+                            "label": f"[{ninfo['name']}] {label}",
+                            "transports": list(row.get("transports") or []),
+                            "bytes": int(row.get("bytes") or 0),
+                            "bytes_fmt": row.get("bytes_fmt") or fmt_bytes(int(row.get("bytes") or 0)),
+                            "connected_at": row.get("connected_at"),
+                            "last_connected_at": row.get("last_connected_at"),
+                            "source": "node",
+                            "node_name": ninfo["name"],
+                            "node_id": ninfo["id"],
+                        })
+            except Exception:
+                continue
+
     result.sort(key=lambda x: x.get("last_connected_at") or "", reverse=True)
     return {
         "connections": result,
         "count": len(result),
+        "raw_count": len(connections) + node_raw,
+        "local_count": len(local),
+        "node_count": max(0, len(result) - len(local)),
+    }
+
+
+@app.get("/api/cluster/peer-connections")
+async def api_cluster_peer_connections(request: Request):
+    """نود: اتصالات زنده را با node_token به مرکزی می‌دهد (بدون session ادمین)."""
+    if _cluster_role() != "node":
+        # روی مرکزی هم می‌توان local برگرداند اگر token نود نبود
+        node = _verify_node_token(request)
+        if not node:
+            raise HTTPException(status_code=401, detail="node token نامعتبر است")
+    else:
+        c = _cluster()
+        token = (
+            request.headers.get("X-Node-Token")
+            or (request.headers.get("Authorization") or "").replace("Bearer", "").strip()
+        )
+        if not token or token != (c.get("node_token") or ""):
+            raise HTTPException(status_code=401, detail="node token نامعتبر است")
+    rows = _local_connections_snapshot()
+    return {
+        "ok": True,
+        "connections": rows,
+        "count": len(rows),
         "raw_count": len(connections),
+        "role": _cluster_role(),
+        "host": get_host(),
     }
 
 
@@ -2591,7 +2692,7 @@ async def list_links(_=Depends(require_auth)):
                         "active": _as_bool(cfg.get("active", True)),
                         "allowed": _as_bool(cfg.get("active", True)),
                         "expired": False,
-                        "used_bytes": 0,
+                        "used_bytes": int(cfg.get("used_bytes") or 0),
                         "limit_bytes": 0,
                         "created_at": node.get("last_seen") or node.get("created_at") or datetime.now().isoformat(),
                         "vless_link": uri,
@@ -2610,6 +2711,34 @@ async def list_links(_=Depends(require_auth)):
 @app.patch("/api/links/{uid}")
 async def update_link(uid: str, request: Request, _=Depends(require_auth)):
     body = await request.json()
+    # کانفیگ نود (remote:…) — فقط active/label روی NODES
+    if _is_remote_link_id(uid):
+        async with NODES_LOCK:
+            if "active" in body:
+                ok = _set_remote_active(uid, _as_bool(body["active"]))
+                if not ok:
+                    raise HTTPException(status_code=404, detail="remote link not found")
+                log_activity(
+                    "link",
+                    f"کانفیگ نود «{uid}» {'فعال' if _as_bool(body['active']) else 'غیرفعال'} شد",
+                    "ok" if _as_bool(body["active"]) else "warn",
+                )
+            if "label" in body:
+                parts = str(uid).split(":", 2)
+                if len(parts) >= 3:
+                    node = NODES.get(parts[1])
+                    src = parts[2]
+                    if node:
+                        for idx, cfg in enumerate(node.get("configs") or []):
+                            if not isinstance(cfg, dict):
+                                continue
+                            key = str(cfg.get("source_id") if cfg.get("source_id") not in (None, "") else idx)
+                            if key == src:
+                                cfg["label"] = str(body["label"])[:100]
+                                break
+        await save_state()
+        return {"ok": True, "remote": True}
+
     mtproto_action = None
     new_sub = "UNCHANGED"
     resolved = await resolve_link_id(uid) or uid
@@ -2750,6 +2879,34 @@ async def get_ad_tag_status(uid: str, _=Depends(require_auth)):
 
 @app.delete("/api/links/{uid}")
 async def delete_link(uid: str, _=Depends(require_auth)):
+    # حذف کانفیگ نود از لیست مرکزی (+ از link_ids ساب‌ها)
+    if _is_remote_link_id(uid):
+        parts = str(uid).split(":", 2)
+        label = uid
+        async with NODES_LOCK:
+            if len(parts) >= 3:
+                node = NODES.get(parts[1])
+                src = parts[2]
+                if node:
+                    keep = []
+                    for idx, cfg in enumerate(node.get("configs") or []):
+                        if not isinstance(cfg, dict):
+                            continue
+                        key = str(cfg.get("source_id") if cfg.get("source_id") not in (None, "") else idx)
+                        if key == src:
+                            label = cfg.get("label") or uid
+                            continue
+                        keep.append(cfg)
+                    node["configs"] = keep
+        async with SUBS_LOCK:
+            for s in SUBS.values():
+                ids = s.get("link_ids") or []
+                if uid in ids:
+                    s["link_ids"] = [x for x in ids if x != uid]
+        await save_state()
+        log_activity("link", f"کانفیگ نود «{label}» از مرکزی حذف شد", "err")
+        return {"ok": True, "deleted": uid, "remote": True}
+
     async with LINKS_LOCK:
         if uid not in LINKS:
             raise HTTPException(status_code=404, detail="link not found")
