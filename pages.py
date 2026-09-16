@@ -2951,7 +2951,17 @@ body,[data-theme="dark"] body{background:var(--bg)!important;font-size:15px;line
 </section>
 <section class="pg" id="pg-cluster">
   <div class="topbar"><div><div class="tb-title"><i class="ti ti-topology-star-3"></i> شبکه نودها</div><div class="tb-sub">اتصال زنده، گروه‌های راه‌دور و کنترل یکپارچه پنل‌ها</div></div><div class="tb-right"><span class="badge bg-green"><span class="dot dg"></span> همگام‌سازی خودکار</span></div></div>
-  <div class="cluster-kpis"><div class="cluster-kpi"><i class="ti ti-server"></i><div><b id="cluster-kpi-nodes">۰</b><span>نود ثبت‌شده</span></div></div><div class="cluster-kpi"><i class="ti ti-link"></i><div><b id="cluster-kpi-configs">۰</b><span>کانفیگ راه‌دور</span></div></div><div class="cluster-kpi"><i class="ti ti-refresh"></i><div><b>۶ ثانیه</b><span>چرخه همگام‌سازی</span></div></div></div>
+  <div class="nx-metrics">
+    <div class="nx-metric"><div class="nx-metric-top"><span>کل نودها</span><i class="ti ti-server-2"></i></div><div class="nx-metric-val"><b id="cluster-kpi-nodes">۰</b><span id="cluster-kpi-online-pct" class="nx-chip ok">—</span></div></div>
+    <div class="nx-metric"><div class="nx-metric-top"><span>میانگین Latency</span><i class="ti ti-activity"></i></div><div class="nx-metric-val"><b id="cluster-kpi-ping">—</b><span class="nx-unit">ms</span></div></div>
+    <div class="nx-metric"><div class="nx-metric-top"><span>کانفیگ راه‌دور</span><i class="ti ti-link"></i></div><div class="nx-metric-val"><b id="cluster-kpi-configs">۰</b></div></div>
+    <div class="nx-metric"><div class="nx-metric-top"><span>مناطق</span><i class="ti ti-world"></i></div><div class="nx-metric-val"><b id="cluster-kpi-regions">۰</b><span class="nx-unit">کشور</span></div></div>
+  </div>
+  <div class="nx-toolbar">
+    <div class="nx-search"><i class="ti ti-search"></i><input id="nx-search" placeholder="جستجو نام، هاست یا کشور..." oninput="filterNodeCards()"></div>
+    <div class="nx-filters" id="nx-country-filters"></div>
+    <button type="button" class="nx-btn" onclick="pingAllNodes()" id="nx-ping-btn"><i class="ti ti-refresh" id="nx-ping-icon"></i> پینگ همه</button>
+  </div>
   <div id="cluster-page-slot"></div>
 </section>
 <section class="pg" id="pg-settings">
@@ -4426,41 +4436,108 @@ async function loadClusterStatus(){
     const sc=document.getElementById('cluster-sync-cf'); if(sc) sc.checked=!!c.sync_cf;
     const summary=document.getElementById('cluster-sync-summary'); if(summary) summary.textContent=d.role==='central'?`${toFa(d.remote_config_count||0)} کانفیگ از نودها دریافت شده`:`${toFa(d.selected_local_count||0)} کانفیگ برای ارسال انتخاب شده`;
     clusterRoleChanged();
+    window._clusterNodesCache=d.nodes||[];
     const list=document.getElementById('cluster-nodes-list');
     if(list && d.role==='central'){
-      const nodes=d.nodes||[];const nk=document.getElementById('cluster-kpi-nodes');if(nk)nk.textContent=toFa(nodes.length);const ck=document.getElementById('cluster-kpi-configs');if(ck)ck.textContent=toFa(d.remote_config_count||0);const nb=document.getElementById('nodes-nb');if(nb)nb.textContent=toFa(nodes.length);
-      if(!nodes.length){list.innerHTML='<div class="empty" style="padding:20px"><i class="ti ti-server-off"></i><p>هنوز نودی ثبت نشده</p></div>';}
-      else{
-        list.innerHTML='<div class="node-list">'+nodes.map(n=>{
-          const online=!!n.online;
-          const seen=(n.last_seen||'').replace('T',' ').slice(0,16);
-          const loc=nodeLocationInfo(n.region,n.name,n.host);
-          const cfg=Number(n.config_count||0);
-          return `<div class="node-row ${online?'is-online':'is-offline'}">
-            <div class="node-row-main">
-              <div class="node-avatar flag ${online?'on':'off'}" title="${esc(loc.label)}">${loc.flag}</div>
-              <div class="node-row-text">
-                <div class="node-row-title">
-                  <span class="node-row-name">${esc(n.name||'Node')}</span>
-                  <span class="node-pill ${online?'on':'off'}"><i class="ti ti-circle-filled"></i>${online?'متصل':'آفلاین'}</span>
-                </div>
-                <div class="node-row-sub" dir="ltr">${esc(n.host||'—')}</div>
-              </div>
-            </div>
-            <div class="node-row-meta">
-              <span class="node-meta-item node-loc" title="لوکیشن"><span class="node-flag-sm">${loc.flag}</span>${esc(loc.label)}</span>
-              <span class="node-meta-item" title="تعداد کانفیگ"><i class="ti ti-link"></i>${toFa(cfg)}</span>
-              <span class="node-meta-item" title="آخرین همگام" dir="ltr"><i class="ti ti-clock"></i>${esc(seen||'—')}</span>
-            </div>
-            <div class="node-row-actions">
-              <button type="button" class="node-icon-btn" title="کپی هاست" onclick="copyNodeHost('${esc(n.host||'')}')"><i class="ti ti-copy"></i></button>
-              <button type="button" class="node-icon-btn danger" title="حذف نود" onclick="deleteClusterNode('${esc(n.id)}')"><i class="ti ti-trash"></i></button>
-            </div>
-          </div>`;
-        }).join('')+'</div>';
-      }
+      renderClusterNodesUI(window._clusterNodesCache, d.remote_config_count||0);
     }
   }catch(e){console.error(e)}
+}
+function _pingTone(ms,ok){
+  if(ok===false)return {cls:'bad',label:'قطع',w:100};
+  if(ms==null)return {cls:'muted',label:'—',w:0};
+  if(ms<80)return {cls:'good',label:ms+'ms',w:Math.min(ms/2,100)};
+  if(ms<180)return {cls:'ok',label:ms+'ms',w:Math.min(ms/2,100)};
+  return {cls:'warn',label:ms+'ms',w:Math.min(ms/2,100)};
+}
+function renderClusterNodesUI(nodes, remoteCount){
+  const list=document.getElementById('cluster-nodes-list');
+  if(!list)return;
+  const nk=document.getElementById('cluster-kpi-nodes');if(nk)nk.textContent=toFa(nodes.length);
+  const ck=document.getElementById('cluster-kpi-configs');if(ck)ck.textContent=toFa(remoteCount||nodes.reduce((a,n)=>a+(n.config_count||0),0));
+  const nb=document.getElementById('nodes-nb');if(nb)nb.textContent=toFa(nodes.length);
+  const regions=new Set(nodes.map(n=>nodeLocationInfo(n.region,n.name,n.host).label));
+  const rk=document.getElementById('cluster-kpi-regions');if(rk)rk.textContent=toFa(regions.size);
+  const pings=nodes.map(n=>n.last_ping_ms).filter(x=>typeof x==='number');
+  const avg=pings.length?Math.round(pings.reduce((a,b)=>a+b,0)/pings.length):null;
+  const pk=document.getElementById('cluster-kpi-ping');if(pk)pk.textContent=avg!=null?toFa(avg):'—';
+  const onlineN=nodes.filter(n=>n.last_ping_ok!==false&&n.online!==false).length;
+  const op=document.getElementById('cluster-kpi-online-pct');if(op)op.textContent=nodes.length?Math.round(onlineN/nodes.length*100)+'% آنلاین':'—';
+
+  // country filter chips
+  const filters=document.getElementById('nx-country-filters');
+  if(filters){
+    const codes={};
+    nodes.forEach(n=>{const loc=nodeLocationInfo(n.region,n.name,n.host);codes[loc.label]=loc.flag;});
+    let fhtml='<button type="button" class="nx-chip-btn on" data-nx="all" onclick="setNodeCountryFilter(\'all\',this)">همه</button>';
+    Object.keys(codes).forEach(label=>{
+      fhtml+=`<button type="button" class="nx-chip-btn" data-nx="${esc(label)}" onclick="setNodeCountryFilter('${esc(label)}',this)">${codes[label]} ${esc(label)}</button>`;
+    });
+    filters.innerHTML=fhtml;
+  }
+  window._nxCountryFilter='all';
+  if(!nodes.length){list.innerHTML='<div class="nx-empty"><i class="ti ti-server-off"></i><p>هنوز نودی ثبت نشده</p></div>';return;}
+  list.innerHTML='<div class="nx-grid" id="nx-grid">'+nodes.map(n=>{
+    const loc=nodeLocationInfo(n.region,n.name,n.host);
+    const cfg=Number(n.config_count||0);
+    const seen=(n.last_seen||'').replace('T',' ').slice(0,16);
+    const tone=_pingTone(n.last_ping_ms,n.last_ping_ok);
+    const online=n.last_ping_ok!==false;
+    return `<article class="nx-card" data-name="${esc((n.name||'')+' '+(n.host||'')+' '+loc.label).toLowerCase()}" data-country="${esc(loc.label)}">
+      <div class="nx-card-head">
+        <div class="nx-card-id">
+          <span class="nx-flag">${loc.flag}</span>
+          <div>
+            <div class="nx-title">${esc(n.name||'Node')}</div>
+            <div class="nx-region">${esc(loc.label)}</div>
+          </div>
+        </div>
+        <span class="nx-status ${online?'on':'off'}"><i class="ti ti-circle-filled"></i>${online?'Online':'Offline'}</span>
+      </div>
+      <div class="nx-endpoint">
+        <span dir="ltr">${esc(n.host||'—')}</span>
+        <button type="button" class="nx-icon" onclick="copyNodeHost('${esc(n.host||'')}')" title="کپی"><i class="ti ti-copy"></i></button>
+      </div>
+      <div class="nx-ping">
+        <div class="nx-ping-row"><span>Latency</span><b class="nx-ping-${tone.cls}">${tone.label}</b></div>
+        <div class="nx-ping-bar"><i style="width:${tone.w}%" class="nx-ping-${tone.cls}"></i></div>
+      </div>
+      <div class="nx-foot">
+        <span><i class="ti ti-link"></i> ${toFa(cfg)} کانفیگ</span>
+        <span dir="ltr"><i class="ti ti-clock"></i> ${esc(seen||'—')}</span>
+        <button type="button" class="nx-icon danger" onclick="deleteClusterNode('${esc(n.id)}')" title="حذف"><i class="ti ti-trash"></i></button>
+      </div>
+    </article>`;
+  }).join('')+'</div>';
+}
+window._nxCountryFilter='all';
+function setNodeCountryFilter(label,btn){
+  window._nxCountryFilter=label;
+  document.querySelectorAll('.nx-chip-btn').forEach(b=>b.classList.toggle('on',b===btn));
+  filterNodeCards();
+}
+function filterNodeCards(){
+  const q=(document.getElementById('nx-search')?.value||'').trim().toLowerCase();
+  const cf=window._nxCountryFilter||'all';
+  document.querySelectorAll('#nx-grid .nx-card').forEach(card=>{
+    const okQ=!q||(card.dataset.name||'').includes(q);
+    const okC=cf==='all'||card.dataset.country===cf;
+    card.style.display=(okQ&&okC)?'':'none';
+  });
+}
+async function pingAllNodes(){
+  const icon=document.getElementById('nx-ping-icon');
+  const btn=document.getElementById('nx-ping-btn');
+  if(icon)icon.classList.add('spin');
+  if(btn)btn.disabled=true;
+  try{
+    const r=await authF('/api/cluster/nodes/ping',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(d.detail||'خطا');
+    toast('پینگ: '+(d.online||0)+'/'+(d.total||0)+' · میانگین '+(d.avg_ms!=null?d.avg_ms+'ms':'—'),'ok');
+    await loadClusterStatus();
+  }catch(e){toast(String(e.message||e),'err')}
+  finally{if(icon)icon.classList.remove('spin');if(btn)btn.disabled=false;}
 }
 async function saveClusterSettings(){
   const role=document.getElementById('cluster-role').value;
@@ -5248,6 +5325,60 @@ body{
 .lmodal-chip span{font-size:10px;opacity:.7}
 .lmodal-chip.on{background:var(--accent);color:#fff;border-color:transparent}
 .lmodal-chip.partial{background:rgba(37,99,235,.12);color:var(--accent);border-color:rgba(37,99,235,.3)}
+
+
+/* ── Nodes console (zinc / Gemini-inspired) ── */
+.nx-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+.nx-metric{background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:14px 16px}
+.nx-metric-top{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--t3);margin-bottom:10px}
+.nx-metric-val{display:flex;align-items:baseline;gap:8px}
+.nx-metric-val b{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--t1)}
+.nx-unit{font-size:11px;color:var(--t3)}
+.nx-chip{font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;background:rgba(16,185,129,.12);color:#10B981}
+.nx-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px;padding:10px 12px;background:var(--card);border:1px solid var(--card-b);border-radius:14px}
+.nx-search{position:relative;flex:1;min-width:180px}
+.nx-search i{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:14px}
+.nx-search input{width:100%;padding:8px 32px 8px 12px;border-radius:10px;border:1px solid var(--card-b);background:var(--bg2);color:var(--t1);font-family:inherit;font-size:12px;outline:none}
+.nx-filters{display:flex;flex-wrap:wrap;gap:6px}
+.nx-chip-btn{border:1px solid var(--card-b);background:transparent;color:var(--t3);border-radius:8px;padding:5px 10px;font-size:11px;font-family:inherit;cursor:pointer}
+.nx-chip-btn.on{background:#18181b;color:#fff;border-color:transparent}
+[data-theme="dark"] .nx-chip-btn.on{background:#f4f4f5;color:#18181b}
+.nx-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--card-b);background:var(--bg2);color:var(--t1);border-radius:10px;padding:8px 12px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:600}
+.nx-btn:disabled{opacity:.6;cursor:wait}
+.nx-btn .spin,.spin{animation:spin 1s linear infinite}
+.nx-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.nx-card{background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:12px;transition:border-color .2s,transform .2s}
+.nx-card:hover{border-color:#a1a1aa;transform:translateY(-2px)}
+[data-theme="dark"] .nx-card:hover{border-color:#52525b}
+.nx-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.nx-card-id{display:flex;gap:10px;align-items:center;min-width:0}
+.nx-flag{font-size:22px;line-height:1}
+.nx-title{font-size:13.5px;font-weight:650;color:var(--t1)}
+.nx-region{font-size:11px;color:var(--t3);margin-top:2px}
+.nx-status{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;padding:3px 8px;border-radius:8px;border:1px solid var(--card-b);background:var(--bg2);color:var(--t2)}
+.nx-status i{font-size:7px}
+.nx-status.on{color:#10B981}
+.nx-status.on i{color:#10B981}
+.nx-status.off{color:#a1a1aa}
+.nx-endpoint{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:var(--bg2);border:1px solid var(--card-b);font-family:ui-monospace,monospace;font-size:11px;color:var(--t2)}
+.nx-endpoint span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nx-icon{width:28px;height:28px;border:none;background:transparent;color:var(--t3);border-radius:8px;display:grid;place-items:center;cursor:pointer}
+.nx-icon:hover{color:var(--t1);background:var(--bg3)}
+.nx-icon.danger:hover{color:#ef4444;background:rgba(239,68,68,.1)}
+.nx-ping-row{display:flex;justify-content:space-between;font-size:11px;color:var(--t3);margin-bottom:6px}
+.nx-ping-row b{font-variant-numeric:tabular-nums}
+.nx-ping-good{color:#10B981}.nx-ping-ok{color:#3b82f6}.nx-ping-warn{color:#f59e0b}.nx-ping-bad{color:#ef4444}.nx-ping-muted{color:var(--t3)}
+.nx-ping-bar{height:4px;background:var(--bg3);border-radius:999px;overflow:hidden}
+.nx-ping-bar i{display:block;height:100%;border-radius:999px}
+.nx-ping-bar i.nx-ping-good{background:#10B981}
+.nx-ping-bar i.nx-ping-ok{background:#3b82f6}
+.nx-ping-bar i.nx-ping-warn{background:#f59e0b}
+.nx-ping-bar i.nx-ping-bad{background:#ef4444}
+.nx-foot{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--t3);flex-wrap:wrap}
+.nx-foot span{display:inline-flex;align-items:center;gap:4px}
+.nx-empty{text-align:center;padding:40px;color:var(--t3);border:1px dashed var(--card-b);border-radius:14px}
+@media(max-width:900px){.nx-metrics{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.nx-metrics{grid-template-columns:1fr}.nx-grid{grid-template-columns:1fr}}
 
 </style>
 </head>

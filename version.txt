@@ -1,2 +1,2 @@
-version=4.2.5
-description=Full country flags BE NO etc + region select + host/name detect
+version=4.3.0
+description=Zinc nodes console + real ping + Gemini-style cards

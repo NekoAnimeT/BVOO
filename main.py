@@ -3610,6 +3610,9 @@ async def api_cluster_status(_=Depends(require_auth)):
                 "last_seen": n.get("last_seen"),
                 "config_count": len(n.get("configs") or []),
                 "online": bool(n.get("last_seen")),
+                "last_ping_ms": n.get("last_ping_ms"),
+                "last_ping_ok": n.get("last_ping_ok"),
+                "last_ping_at": n.get("last_ping_at"),
             }
             for nid, n in NODES.items()
         ]
@@ -3856,8 +3859,83 @@ async def api_cluster_nodes(_=Depends(require_auth)):
                 "last_seen": n.get("last_seen"),
                 "config_count": len(n.get("configs") or []),
                 "configs": n.get("configs") or [],
+                "last_ping_ms": n.get("last_ping_ms"),
+                "last_ping_at": n.get("last_ping_at"),
+                "last_ping_ok": n.get("last_ping_ok"),
             })
     return {"nodes": out, "role": "central"}
+
+
+async def _measure_node_ping(host: str) -> dict:
+    """پینگ واقعی: زمان پاسخ HTTP به /health یا اتصال TLS روی 443."""
+    raw = re.sub(r"^https?://", "", str(host or "").strip(), flags=re.I).split("/", 1)[0].strip()
+    if not raw or raw in ("localhost", "127.0.0.1"):
+        return {"ok": False, "ms": None, "detail": "local"}
+    hostname = raw.split(":")[0]
+    port = 443
+    if ":" in raw:
+        try:
+            port = int(raw.split(":")[1])
+        except Exception:
+            port = 443
+    t0 = time.perf_counter()
+    try:
+        async with httpx.AsyncClient(timeout=3.5, follow_redirects=True, verify=False) as client:
+            url = f"https://{hostname}:{port}/health" if port != 443 else f"https://{hostname}/health"
+            r = await client.get(url)
+            ms = int((time.perf_counter() - t0) * 1000)
+            return {"ok": r.status_code < 500, "ms": ms, "status_code": r.status_code}
+    except Exception:
+        pass
+    # fallback: TCP connect
+    t0 = time.perf_counter()
+    try:
+        conn = asyncio.open_connection(hostname, port)
+        reader, writer = await asyncio.wait_for(conn, timeout=3.0)
+        ms = int((time.perf_counter() - t0) * 1000)
+        writer.close()
+        try:
+            await writer.wait_closed()
+        except Exception:
+            pass
+        return {"ok": True, "ms": ms, "status_code": 0, "via": "tcp"}
+    except Exception as exc:
+        ms = int((time.perf_counter() - t0) * 1000)
+        return {"ok": False, "ms": ms if ms < 3500 else None, "detail": str(exc)[:80]}
+
+
+@app.post("/api/cluster/nodes/ping")
+async def api_cluster_nodes_ping(request: Request, _=Depends(require_auth)):
+    """پینگ واقعی همه نودها یا لیست id."""
+    if _cluster_role() != "central":
+        raise HTTPException(status_code=400, detail="فقط پنل مرکزی")
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    want = body.get("ids") if isinstance(body, dict) else None
+    async with NODES_LOCK:
+        items = []
+        for nid, n in NODES.items():
+            if want and nid not in want:
+                continue
+            items.append((nid, n.get("host") or ""))
+    results = {}
+    async def one(nid, host):
+        res = await _measure_node_ping(host)
+        results[nid] = res
+        async with NODES_LOCK:
+            if nid in NODES:
+                NODES[nid]["last_ping_ms"] = res.get("ms")
+                NODES[nid]["last_ping_ok"] = bool(res.get("ok"))
+                NODES[nid]["last_ping_at"] = datetime.now().isoformat()
+    await asyncio.gather(*[one(nid, host) for nid, host in items])
+    ok_n = sum(1 for v in results.values() if v.get("ok"))
+    avg = None
+    vals = [v["ms"] for v in results.values() if isinstance(v.get("ms"), int)]
+    if vals:
+        avg = int(sum(vals) / len(vals))
+    return {"ok": True, "results": results, "online": ok_n, "total": len(results), "avg_ms": avg}
 
 
 @app.delete("/api/cluster/nodes/{node_id}")
