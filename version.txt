@@ -1,2 +1,2 @@
-version=4.3.1
-description=Fix nodes CSS was outside dashboard HTML
+version=4.4.0
+description=OXNET Console zinc design system + login without secret path
