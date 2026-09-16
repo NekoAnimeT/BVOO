@@ -3869,6 +3869,7 @@ async function deleteSub(sub_id){
   }catch(e){toast('خطا','err')}
 }
 let lmodalLinks=[],lmodalInSub=new Set(),lmodalOrigInSub=new Set();
+window.lmodalShowIndividuals=false;
 async function openSubLinks(sub_id,name){
   currentSubId=sub_id;
   document.getElementById('modal-sub-name').textContent=name;
@@ -3882,7 +3883,6 @@ async function openSubLinks(sub_id,name){
     const thisSub=subs.find(s=>s.sub_id===sub_id);
     lmodalInSub=new Set(thisSub?.link_ids||[]);
     lmodalOrigInSub=new Set(thisSub?.link_ids||[]);
-    // محلی: همین گروه یا آزاد | نود: همیشه قابل انتخاب روی مرکزی
     lmodalLinks=(links||[]).filter(l=>{
       if(!l||!l.uuid)return false;
       if(l.remote_node)return true;
@@ -3891,31 +3891,108 @@ async function openSubLinks(sub_id,name){
       const sid=l.sub_id;
       return !sid || sid===sub_id;
     });
-    const quick=document.querySelector('.lmodal-quickbar');
-    if(quick){quick.querySelectorAll('.node-group-qbtn').forEach(x=>x.remove());const groups=new Map();lmodalLinks.filter(x=>x.remote_node).forEach(x=>(x.remote_group_names||[]).forEach((g,i)=>{const key=(x.node_id||'node')+'|'+((x.remote_group_ids||[])[i]||g);if(!groups.has(key))groups.set(key,{name:g,node:x.node_name,ids:[]});groups.get(key).ids.push(x.uuid)}));[...groups.values()].slice(0,12).forEach(g=>{const b=document.createElement('button');b.className='lmodal-qbtn node-group-qbtn';b.textContent=(g.node||'نود')+' / '+g.name;b.onclick=()=>{g.ids.forEach(id=>lmodalInSub.add(id));renderLmodalList(lmodalLinks)};quick.insertBefore(b,document.getElementById('lmodal-count'))})}
     const uu=document.getElementById('sub-unify-uuid');if(uu)uu.checked=!!(thisSub&&thisSub.unified_uuid);
     renderLmodalList(lmodalLinks);
   }catch(e){toast('خطا در بارگذاری','err')}
 }
+function _lmodalBuildGroups(links){
+  const byNode=new Map();
+  const local=[];
+  (links||[]).forEach(l=>{
+    if(!l.remote_node){local.push(l);return}
+    const nid=l.node_id||'unknown';
+    if(!byNode.has(nid)) byNode.set(nid,{id:nid,name:l.node_name||nid,region:l.node_region||'',items:[],groups:new Map()});
+    const node=byNode.get(nid);
+    node.items.push(l);
+    const gnames=l.remote_group_names||[];
+    const gids=l.remote_group_ids||[];
+    if(gnames.length){
+      gnames.forEach((g,i)=>{
+        const key=String(gids[i]||g);
+        if(!node.groups.has(key)) node.groups.set(key,{id:key,name:g,ids:[]});
+        node.groups.get(key).ids.push(l.uuid);
+      });
+    }else{
+      if(!node.groups.has('_all')) node.groups.set('_all',{id:'_all',name:'همه کانفیگ‌های نود',ids:[]});
+      node.groups.get('_all').ids.push(l.uuid);
+    }
+  });
+  return {byNode, local};
+}
+function lmodalToggleIds(ids,force){
+  const allOn=ids.length&&ids.every(id=>lmodalInSub.has(id));
+  const on=force===undefined?!allOn:!!force;
+  ids.forEach(id=>{if(on)lmodalInSub.add(id);else lmodalInSub.delete(id)});
+  renderLmodalList(lmodalLinks);
+}
 function renderLmodalList(links){
   const body=document.getElementById('modal-links-body');
   if(!links.length){body.innerHTML='<div class="empty" style="padding:30px"><i class="ti ti-link-off"></i><p>کانفیگ آزادی برای افزودن نیست</p></div>';updateLmodalCount();return}
-  body.innerHTML=links.map(l=>{
-    const checked=lmodalInSub.has(l.uuid);
-    const on=l.active&&!l.expired;
-    const meta=l.remote_node
-      ? `<i class="ti ti-server" style="font-size:10px"></i> ${esc(l.node_name||'Node')} · ${(PROTO_MAP[l.protocol]||[l.protocol])[0]||l.protocol}${l.target?' · '+esc(l.target):''}`
-      : `<i class="ti ti-database" style="font-size:10px"></i> ${fmtB(l.used_bytes)} · ${(PROTO_MAP[l.protocol]||[l.protocol])[0]||l.protocol}`;
-    return `<div class="lrow-v2 ${checked?'checked':''}" data-uuid="${esc(l.uuid)}" data-name="${esc(l.label).toLowerCase()}" onclick="toggleLrow(this)">
-      <div class="lrow-v2-check"><i class="ti ti-check"></i></div>
-      <div class="lrow-v2-avatar"><i class="ti ti-${l.remote_node?'cloud-download':'key'}"></i></div>
-      <div class="lrow-v2-info">
-        <div class="lrow-v2-name">${esc(l.label)}${l.remote_node?' <span class="cfg-sub-tag">نود</span>':''}</div>
-        <div class="lrow-v2-meta">${meta}</div>
-      </div>
-      <span class="lrow-v2-status ${on?'on':'off'}">${on?'فعال':'غیرفعال'}</span>
+  const {byNode, local}=_lmodalBuildGroups(links);
+  let html='';
+  // بخش گروه‌های نود — انتخاب دسته‌ای
+  if(byNode.size){
+    html+='<div class="lmodal-section-title"><i class="ti ti-topology-star-3"></i> نودها و گروه‌ها <span style="font-weight:500;color:var(--t3)">یک کلیک = همه اعضای گروه</span></div>';
+    for(const node of byNode.values()){
+      const allIds=node.items.map(x=>x.uuid);
+      const sel=allIds.filter(id=>lmodalInSub.has(id)).length;
+      const allOn=sel===allIds.length&&allIds.length;
+      html+=`<div class="lmodal-node-card ${allOn?'is-on':''}">
+        <div class="lmodal-node-head">
+          <div class="lmodal-node-title"><i class="ti ti-server"></i> <b>${esc(node.name)}</b>
+            <span class="badge bg-blue">${toFa(node.items.length)}</span>
+            <span style="font-size:11px;color:var(--t3)">${toFa(sel)} انتخاب</span>
+          </div>
+          <div class="lmodal-node-actions">
+            <button type="button" class="btn btn-sm ${allOn?'btn-o':'btn-p'}" onclick="event.stopPropagation();lmodalToggleIds(${JSON.stringify(allIds)})">${allOn?'حذف همه':'افزودن همه'}</button>
+          </div>
+        </div>
+        <div class="lmodal-group-chips">`;
+      for(const g of node.groups.values()){
+        const gOn=g.ids.length&&g.ids.every(id=>lmodalInSub.has(id));
+        const gPart=g.ids.some(id=>lmodalInSub.has(id))&&!gOn;
+        html+=`<button type="button" class="lmodal-chip ${gOn?'on':(gPart?'partial':'')}" onclick="event.stopPropagation();lmodalToggleIds(${JSON.stringify(g.ids)})">
+          <i class="ti ti-${gOn?'circle-check':'folder'}"></i> ${esc(g.name)} <span>${toFa(g.ids.length)}</span>
+        </button>`;
+      }
+      html+=`</div></div>`;
+    }
+  }
+  // محلی
+  if(local.length){
+    html+='<div class="lmodal-section-title" style="margin-top:14px"><i class="ti ti-database"></i> کانفیگ‌های محلی</div>';
+    local.forEach(l=>{
+      const checked=lmodalInSub.has(l.uuid);
+      const on=l.active&&!l.expired;
+      html+=`<div class="lrow-v2 ${checked?'checked':''}" data-uuid="${esc(l.uuid)}" data-name="${esc(l.label).toLowerCase()}" onclick="toggleLrow(this)">
+        <div class="lrow-v2-check"><i class="ti ti-check"></i></div>
+        <div class="lrow-v2-avatar"><i class="ti ti-key"></i></div>
+        <div class="lrow-v2-info"><div class="lrow-v2-name">${esc(l.label)}</div>
+        <div class="lrow-v2-meta">${fmtB(l.used_bytes)} · ${(PROTO_MAP[l.protocol]||[l.protocol])[0]||l.protocol}</div></div>
+        <span class="lrow-v2-status ${on?'on':'off'}">${on?'فعال':'غیرفعال'}</span></div>`;
+    });
+  }
+  // تک‌تک نود — جمع‌شده
+  const remotes=links.filter(l=>l.remote_node);
+  if(remotes.length){
+    html+=`<div class="lmodal-section-title" style="margin-top:14px;cursor:pointer" onclick="lmodalShowIndividuals=!lmodalShowIndividuals;renderLmodalList(lmodalLinks)">
+      <i class="ti ti-${lmodalShowIndividuals?'chevron-down':'chevron-left'}"></i> نمایش تک‌به‌تک نودها (${toFa(remotes.length)})
     </div>`;
-  }).join('');
+    if(window.lmodalShowIndividuals){
+      remotes.forEach(l=>{
+        const checked=lmodalInSub.has(l.uuid);
+        const on=l.active&&!l.expired;
+        const meta=`${esc(l.node_name||'')} · ${(PROTO_MAP[l.protocol]||[l.protocol])[0]||l.protocol}${l.target?' · '+esc(l.target):''}`;
+        html+=`<div class="lrow-v2 ${checked?'checked':''}" data-uuid="${esc(l.uuid)}" data-name="${esc((l.label||'')+' '+(l.node_name||'')+' '+(l.target||'')).toLowerCase()}" onclick="toggleLrow(this)">
+          <div class="lrow-v2-check"><i class="ti ti-check"></i></div>
+          <div class="lrow-v2-avatar"><i class="ti ti-cloud-download"></i></div>
+          <div class="lrow-v2-info"><div class="lrow-v2-name">${esc(l.label)} <span class="cfg-sub-tag">نود</span></div>
+          <div class="lrow-v2-meta">${meta}</div></div>
+          <span class="lrow-v2-status ${on?'on':'off'}">${on?'فعال':'غیرفعال'}</span></div>`;
+      });
+    }
+  }
+  body.innerHTML=html;
   updateLmodalCount();
 }
 function toggleLrow(el){
@@ -3936,7 +4013,12 @@ function updateLmodalCount(){
 function filterLmodal(q){
   q=q.trim().toLowerCase();
   document.querySelectorAll('#modal-links-body .lrow-v2').forEach(row=>{
-    row.style.display = !q || row.dataset.name.includes(q) ? '' : 'none';
+    row.style.display = !q || (row.dataset.name||'').includes(q) ? '' : 'none';
+  });
+  document.querySelectorAll('#modal-links-body .lmodal-node-card').forEach(card=>{
+    if(!q){card.style.display='';return}
+    const t=card.textContent.toLowerCase();
+    card.style.display=t.includes(q)?'':'none';
   });
 }
 async function saveSubLinks(){
@@ -4214,13 +4296,31 @@ async function loadClusterStatus(){
     const list=document.getElementById('cluster-nodes-list');
     if(list && d.role==='central'){
       const nodes=d.nodes||[];const nk=document.getElementById('cluster-kpi-nodes');if(nk)nk.textContent=toFa(nodes.length);const ck=document.getElementById('cluster-kpi-configs');if(ck)ck.textContent=toFa(d.remote_config_count||0);const nb=document.getElementById('nodes-nb');if(nb)nb.textContent=toFa(nodes.length);
-      if(!nodes.length){list.innerHTML='هنوز نودی ثبت نشده';}
+      if(!nodes.length){list.innerHTML='<div class="empty" style="padding:20px"><i class="ti ti-server-off"></i><p>هنوز نودی ثبت نشده</p></div>';}
       else{
-        list.innerHTML=nodes.map(n=>`<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--card-b)">
-          <div><b>${esc(n.name||'Node')}</b> <span class="badge ${n.online?'bg-green':'bg-red'}"><span class="dot ${n.online?'dg':'dr'}"></span>${n.online?'متصل':'آفلاین'}</span> <span class="badge bg-blue">${esc(n.region||'—')}</span>
-          <div style="font-size:11px;color:var(--t3);margin-top:3px" dir="ltr">${esc(n.host||'')} · ${toFa(n.config_count||0)} کانفیگ · ${esc((n.last_seen||'').slice(0,19))}</div></div>
-          <button class="btn btn-d btn-sm" onclick="deleteClusterNode('${esc(n.id)}')"><i class="ti ti-trash"></i></button>
-        </div>`).join('');
+        list.innerHTML='<div class="node-grid">'+nodes.map(n=>{
+          const online=!!n.online;
+          const seen=(n.last_seen||'').replace('T',' ').slice(0,19);
+          return `<div class="node-card ${online?'online':'offline'}">
+            <div class="node-card-top">
+              <div class="node-card-icon"><i class="ti ti-server"></i></div>
+              <div class="node-card-meta">
+                <div class="node-card-name">${esc(n.name||'Node')}</div>
+                <div class="node-card-host" dir="ltr">${esc(n.host||'—')}</div>
+              </div>
+              <span class="node-card-status ${online?'on':'off'}"><span class="dot ${online?'dg':'dr'}"></span>${online?'متصل':'آفلاین'}</span>
+            </div>
+            <div class="node-card-stats">
+              <div><b>${toFa(n.config_count||0)}</b><span>کانفیگ</span></div>
+              <div><b>${esc(n.region||'—')}</b><span>منطقه</span></div>
+              <div><b dir="ltr" style="font-size:11px">${esc(seen||'—')}</b><span>آخرین همگام</span></div>
+            </div>
+            <div class="node-card-actions">
+              <button class="btn btn-o btn-sm" type="button" onclick="copyNodeHost('${esc(n.host||'')}')"><i class="ti ti-copy"></i> هاست</button>
+              <button class="btn btn-d btn-sm" type="button" onclick="deleteClusterNode('${esc(n.id)}')"><i class="ti ti-trash"></i></button>
+            </div>
+          </div>`;
+        }).join('')+'</div>';
       }
     }
   }catch(e){console.error(e)}
@@ -4284,6 +4384,7 @@ async function syncNodeToCentral(){
     toast((d.sent||0)+' لینک ارسال شد'+(modes.length?' · '+modes.join('+'):''),'ok');
   }catch(e){toast(String(e.message||e),'err')}
 }
+function copyNodeHost(h){if(!h){toast('هاست خالی','err');return}navigator.clipboard.writeText(h).then(()=>toast('کپی شد','ok')).catch(()=>toast('کپی نشد','err'))}
 async function deleteClusterNode(id){
   if(!confirm('حذف این نود؟'))return;
   try{
@@ -4969,6 +5070,34 @@ body{
 .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block}
 .empty{text-align:center;padding:40px 16px;color:var(--muted);font-weight:500}
 @media(max-width:640px){.stats-bar{grid-template-columns:1fr} body{padding:18px 12px 36px} .sub-name{font-size:1.3rem}}
+
+.node-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.node-card{background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.node-card.online{border-color:rgba(34,197,94,.25)}
+.node-card-top{display:flex;align-items:flex-start;gap:10px}
+.node-card-icon{width:40px;height:40px;border-radius:11px;background:var(--accent-d);color:var(--accent);display:grid;place-items:center;font-size:18px;flex-shrink:0}
+.node-card-meta{flex:1;min-width:0}
+.node-card-name{font-weight:700;font-size:13.5px;color:var(--t1)}
+.node-card-host{font-size:11px;color:var(--t3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.node-card-status{font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;background:var(--bg3);color:var(--t2);white-space:nowrap}
+.node-card-status.on{background:rgba(34,197,94,.12);color:#16A34A}
+.node-card-status.off{background:rgba(239,68,68,.1);color:#DC2626}
+.node-card-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.node-card-stats>div{background:var(--bg3);border-radius:10px;padding:8px;text-align:center}
+.node-card-stats b{display:block;font-size:13px;color:var(--t1)}
+.node-card-stats span{font-size:10px;color:var(--t3)}
+.node-card-actions{display:flex;gap:8px;justify-content:flex-end}
+.lmodal-section-title{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--t2);margin:4px 0 10px}
+.lmodal-node-card{border:1px solid var(--card-b);border-radius:12px;padding:12px;margin-bottom:10px;background:var(--bg3)}
+.lmodal-node-card.is-on{border-color:rgba(37,99,235,.35);background:var(--accent-d)}
+.lmodal-node-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.lmodal-node-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px}
+.lmodal-group-chips{display:flex;flex-wrap:wrap;gap:8px}
+.lmodal-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;border:1px solid var(--card-b);background:var(--card);color:var(--t2);font-size:12px;font-family:inherit;cursor:pointer}
+.lmodal-chip span{font-size:10px;opacity:.7}
+.lmodal-chip.on{background:var(--accent);color:#fff;border-color:transparent}
+.lmodal-chip.partial{background:rgba(37,99,235,.12);color:var(--accent);border-color:rgba(37,99,235,.3)}
+
 </style>
 </head>
 <body>

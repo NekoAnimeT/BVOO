@@ -283,7 +283,7 @@ SETTINGS: dict = {
         "central_url": "",      # https://central.example.com
         "node_token": "",       # توکن اختصاصی این نود
         "cluster_secret": "",   # فقط روی مرکزی — برای ثبت نود جدید
-        "auto_sync": False,
+        "auto_sync": True,
         # هنگام ارسال به مرکزی کدام دامنه ساخته شود
         "sync_main": True,      # دامنه اصلی پنل نود
         "sync_extra": True,     # دامنه‌های فرعی + IP/دامنه تمیز

@@ -1,3 +1,3 @@
-version=4.1.6
-description=Koyeb SECRET_KEY safe; remote cut; node connections on central
-updated_at=1789390000
+version=4.2.1
+description=Unified: ChatGPT UI + group-first modal + node cards redesign
+updated_at=1789605000
