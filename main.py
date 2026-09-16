@@ -177,7 +177,7 @@ async def load_state():
             SETTINGS.setdefault("reality", {"host": "", "port": 443, "pbk": "", "sid": "", "sni": "", "fp": "chrome", "spx": "/"})
             SETTINGS.setdefault("cluster", {
                 "role": "standalone", "node_name": "", "region": "",
-                "central_url": "", "node_token": "", "cluster_secret": "", "auto_sync": False,
+                "central_url": "", "node_token": "", "cluster_secret": "", "auto_sync": True,
             })
             if isinstance(data.get("nodes"), dict):
                 NODES.clear()
@@ -393,6 +393,7 @@ async def startup():
     http_client = httpx.AsyncClient(
         limits=limits, timeout=timeout, follow_redirects=True,
     )
+    asyncio.create_task(_cluster_auto_sync_loop())
     await load_state()
     await _restart_mtproto_instances()
     log_activity("system", "سرور راه‌اندازی شد", "ok")
@@ -517,6 +518,10 @@ async def resolve_link_id(token: str) -> str | None:
             return token
         for uid, link in LINKS.items():
             if link.get('path') == token:
+                return uid
+            if str(link.get('cluster_uuid_alias') or '') == token:
+                return uid
+            if token in [str(x) for x in (link.get('uuid_aliases') or [])]:
                 return uid
     return None
 
@@ -697,9 +702,10 @@ def _uri_authority_host(host: str) -> str:
         return f"[{host}]"
     return host
 
-def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: str = DEFAULT_PROTOCOL, sni_host: str | None = None, port: int = 443) -> str:
+def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: str = DEFAULT_PROTOCOL, sni_host: str | None = None, port: int = 443, credential_uuid: str | None = None) -> str:
     link_obj = LINKS.get(uuid, {})
     public_path = link_obj.get("path") or uuid
+    public_uuid = credential_uuid or link_obj.get("cluster_uuid_alias") or uuid
     tls_host = (sni_host or host).strip()
     authority_host = _uri_authority_host(host)
     # port 80 = plain HTTP / no TLS for clients that support it; 443 = TLS
@@ -733,7 +739,7 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
         }
         query = "&".join(f"{k}={quote(str(v), safe='')}" for k, v in params.items())
         tag = remark or "OXNET-TCP"
-        return f"vless://{uuid}@{_uri_authority_host(t_host)}:{t_port}?{query}#{quote(tag)}"
+        return f"vless://{public_uuid}@{_uri_authority_host(t_host)}:{t_port}?{query}#{quote(tag)}"
 
     # ── VLESS Reality (TCP) share link ───────────────────────────────────────
     # Example:
@@ -764,11 +770,11 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
         }
         query = "&".join(f"{k}={quote(str(v), safe='')}" for k, v in params.items())
         tag = remark or "OXNET-Reality"
-        return f"vless://{uuid}@{_uri_authority_host(r_host)}:{r_port}?{query}#{quote(tag)}"
+        return f"vless://{public_uuid}@{_uri_authority_host(r_host)}:{r_port}?{query}#{quote(tag)}"
 
     if protocol == "shadowsocks-tls":
         import base64
-        user = base64.urlsafe_b64encode(f"chacha20-ietf-poly1305:{uuid}".encode()).decode().rstrip("=")
+        user = base64.urlsafe_b64encode(f"chacha20-ietf-poly1305:{public_uuid}".encode()).decode().rstrip("=")
         if use_tls:
             plugin = quote(f"v2ray-plugin;tls;mode=websocket;host={tls_host};path=/ss/{public_path}", safe="")
         else:
@@ -797,7 +803,7 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
             params["sni"] = tls_host
         query = "&".join(f"{k}={quote(str(v))}" for k, v in params.items())
         tag = remark if use_tls else f"{remark}-HTTP80"
-        return f"trojan://{uuid}@{authority_host}:{int(port)}?{query}#{quote(tag)}"
+        return f"trojan://{public_uuid}@{authority_host}:{int(port)}?{query}#{quote(tag)}"
     if protocol.startswith("trojan-xhttp-"):
         mode = protocol.replace("trojan-xhttp-", "")
         if mode == "stream-one":
@@ -811,7 +817,7 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
             params["sni"] = tls_host
         query = "&".join(f"{k}={quote(str(v))}" for k, v in params.items())
         tag = remark if use_tls else f"{remark}-HTTP80"
-        return f"trojan://{uuid}@{authority_host}:{int(port)}?{query}#{quote(tag)}"
+        return f"trojan://{public_uuid}@{authority_host}:{int(port)}?{query}#{quote(tag)}"
     if protocol == "vless-ws":
         path = f"/ws/{public_path}"
         params = {
@@ -844,7 +850,7 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
             params["sni"] = tls_host
     query = "&".join(f"{k}={quote(str(v))}" for k, v in params.items())
     tag = remark if use_tls else f"{remark}-HTTP80"
-    return f"vless://{uuid}@{authority_host}:{int(port)}?{query}#{quote(tag)}"
+    return f"vless://{public_uuid}@{authority_host}:{int(port)}?{query}#{quote(tag)}"
 
 def uptime() -> str:
     secs = int(time.time() - stats["start_time"])
@@ -1381,6 +1387,9 @@ def _collect_sub_share_lines(sub: dict, host: str) -> tuple[list[str], list[dict
             if not cfg or not _as_bool(cfg.get("active", True)):
                 continue
             uri = cfg.get("uri") or ""
+            canonical = str(sub.get("unified_uuid") or "").strip()
+            if uri and canonical and uri.startswith(("vless://", "trojan://")):
+                uri = re.sub(r"^([a-zA-Z0-9+.-]+://)[^@]+@", lambda m: m.group(1) + canonical + "@", uri, count=1)
             if uri:
                 lines.append(uri)
                 allowed_links.append({
@@ -1611,11 +1620,25 @@ async def update_sub(sub_id: str, request: Request, _=Depends(require_auth)):
                 if _is_remote_link_id(lid):
                     _set_remote_active(lid, True)
         log_activity("sub", "اشتراک فعال شد و کانفیگ‌هایش روشن شدند", "ok")
+    remote_ids = [str(x) for x in link_ids if _is_remote_link_id(str(x))]
+    remote_control = {"nodes": 0, "delivered": 0}
+    if deactivated or reactivated:
+        remote_control = await _control_remote_links(remote_ids, "set_active", bool(reactivated))
+    unified_uuid = str(SUBS.get(sub_id, {}).get("unified_uuid") or "")
+    if body.get("unify_uuid"):
+        unified_uuid = unified_uuid or generate_uuid()
+        SUBS[sub_id]["unified_uuid"] = unified_uuid
+        remote_control = await _control_remote_links(remote_ids, "set_uuid_alias", unified_uuid)
+    elif body.get("unify_uuid") is False:
+        SUBS[sub_id]["unified_uuid"] = ""
+        unified_uuid = ""
     await save_state()
     return {
         "ok": True,
         "active": SUBS.get(sub_id, {}).get("active", True),
         "membership_changed": membership_changed,
+        "unified_uuid": unified_uuid,
+        "remote_control": remote_control,
     }
 
 @app.delete("/api/subs/{sub_id}")
@@ -2522,7 +2545,7 @@ async def create_link(request: Request, _=Depends(require_auth)):
         async with LINKS_LOCK:
             for p in multi_protocols:
                 muid = generate_uuid()
-                mpath = f"{base_path}-{proto_slug(p)}"
+                mpath = secrets.token_urlsafe(6).replace("-", "").replace("_", "")[:9]
                 i = 2
                 used_paths = {str(v.get('path')) for v in LINKS.values() if v.get('path')}
                 while mpath in LINKS or mpath in used_paths:
@@ -2704,6 +2727,9 @@ async def list_links(_=Depends(require_auth)):
                         "domain_kind": cfg.get("domain_kind") or "",
                         "target": cfg.get("target") or "",
                         "sync_to_central": True,
+                        "remote_group_ids": cfg.get("group_ids") or [],
+                        "remote_group_names": cfg.get("group_names") or [],
+                        "canonical_uuid": cfg.get("canonical_uuid") or "",
                     })
     result.sort(key=lambda x: x.get("created_at") or "", reverse=True)
     return {"links": result}
@@ -3467,7 +3493,7 @@ async def ws_shadowsocks(ws: WebSocket, uuid: str):
 def _cluster() -> dict:
     c = SETTINGS.setdefault("cluster", {
         "role": "standalone", "node_name": "", "region": "",
-        "central_url": "", "node_token": "", "cluster_secret": "", "auto_sync": False,
+        "central_url": "", "node_token": "", "cluster_secret": "", "auto_sync": True,
     })
     return c
 
@@ -3491,6 +3517,83 @@ def _verify_node_token(request: Request) -> dict | None:
         if str(node.get("token") or "") == token:
             return {"id": nid, **node}
     return None
+
+
+
+def _node_base_url(node: dict) -> str:
+    host = str(node.get("host") or "").strip().rstrip("/")
+    if not host:
+        return ""
+    return host if host.startswith("http") else "https://" + host
+
+
+async def _send_node_control(node_id: str, source_ids: list[str], action: str, value=None) -> bool:
+    """مرکزی → نود: اعمال وضعیت یا UUID روی کل کانفیگ/گروه بدون نیاز به ورود ادمین نود."""
+    async with NODES_LOCK:
+        node = dict(NODES.get(node_id) or {})
+    base = _node_base_url(node)
+    token = str(node.get("token") or "")
+    if not base or not token:
+        return False
+    try:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            r = await client.post(
+                f"{base}/api/cluster/control",
+                headers={"X-Node-Token": token, "Authorization": f"Bearer {token}"},
+                json={"action": action, "source_ids": source_ids, "value": value},
+            )
+        return r.status_code < 400
+    except Exception as exc:
+        logger.warning("node control failed %s: %s", node_id, exc)
+        return False
+
+
+async def _control_remote_links(link_ids: list[str], action: str, value=None) -> dict:
+    grouped: dict[str, list[str]] = {}
+    for rid in link_ids:
+        parts = str(rid).split(":", 2)
+        if len(parts) == 3 and parts[0] == "remote":
+            grouped.setdefault(parts[1], []).append(parts[2])
+    results = await asyncio.gather(*[
+        _send_node_control(nid, list(dict.fromkeys(source_ids)), action, value)
+        for nid, source_ids in grouped.items()
+    ]) if grouped else []
+    return {"nodes": len(grouped), "delivered": sum(1 for x in results if x)}
+
+
+@app.post("/api/cluster/control")
+async def api_cluster_control(request: Request):
+    """روی نود: فرمان امضاشده مرکزی را روی کانفیگ‌های واقعی اعمال می‌کند."""
+    if _cluster_role() != "node":
+        raise HTTPException(status_code=403, detail="این پنل نود نیست")
+    c = _cluster()
+    auth = request.headers.get("authorization") or ""
+    token = auth[7:].strip() if auth.lower().startswith("bearer ") else (request.headers.get("x-node-token") or "").strip()
+    if not token or token != str(c.get("node_token") or ""):
+        raise HTTPException(status_code=401, detail="توکن مرکزی نامعتبر است")
+    body = await request.json()
+    action = str(body.get("action") or "")
+    source_ids = [str(x) for x in (body.get("source_ids") or [])]
+    base_ids = {x.split(":", 1)[0] for x in source_ids if x}
+    changed = 0
+    async with LINKS_LOCK:
+        for uid, link in LINKS.items():
+            if uid not in base_ids:
+                continue
+            if action == "set_active":
+                link["active"] = _as_bool(body.get("value"))
+                changed += 1
+            elif action == "set_uuid_alias":
+                alias = str(body.get("value") or "").strip()
+                if alias:
+                    link["cluster_uuid_alias"] = alias
+                    aliases = link.setdefault("uuid_aliases", [])
+                    if alias not in aliases:
+                        aliases.append(alias)
+                    changed += 1
+    if changed:
+        await save_state()
+    return {"ok": True, "changed": changed}
 
 
 @app.get("/api/cluster/status")
@@ -3648,6 +3751,10 @@ async def api_cluster_push(request: Request):
                 "source_id": str(item.get("source_id") or "")[:160],
                 "domain_kind": str(item.get("domain_kind") or "")[:40],
                 "target": str(item.get("target") or "")[:120],
+                "group_ids": [str(x)[:160] for x in (item.get("group_ids") or [])[:20]],
+                "group_names": [str(x)[:100] for x in (item.get("group_names") or [])[:20]],
+                "canonical_uuid": str(item.get("canonical_uuid") or "")[:64],
+                "used_bytes": max(0, int(item.get("used_bytes") or 0)),
             })
     nid = node["id"]
     async with NODES_LOCK:
@@ -3799,6 +3906,7 @@ async def api_cluster_connect(request: Request, _=Depends(require_auth)):
     c["node_name"] = payload["name"]
     c["region"] = payload["region"]
     c["role"] = "node"
+    c["auto_sync"] = True
     await save_state()
     log_activity("system", f"به پنل مرکزی وصل شد: {central}", "ok")
     return {"ok": True, "node_token": c["node_token"], "central_url": central}
@@ -3820,20 +3928,29 @@ def _node_sync_share_variants(uid: str, link: dict, host: str, c: dict) -> list[
     def _add(uri: str, source_id: str, tag: str, target: str):
         if not uri:
             return
+        group_ids = []
+        group_names = []
+        for local_sid, local_sub in SUBS.items():
+            if uid in (local_sub.get("link_ids") or []) or local_sid in (link.get("sub_id"), link.get("multi_group_id")):
+                group_ids.append(str(local_sid))
+                group_names.append(str(local_sub.get("name") or "گروه بدون نام"))
         out.append({
             "label": f"{label} · {tag}" if tag and tag != "main" else label,
             "uri": uri,
             "protocol": proto,
-            "active": True,
+            "active": _as_bool(link.get("active", True)),
             "source_id": source_id,
             "domain_kind": tag,
             "target": target,
+            "group_ids": group_ids,
+            "group_names": group_names,
+            "canonical_uuid": str(link.get("cluster_uuid_alias") or ""),
         })
 
     if want_main:
         try:
             remark = format_config_remark(link, target=host, domain=host, cdn=False)
-            uri = generate_share_link(uid, host, remark=remark, protocol=proto)
+            uri = generate_share_link(uid, host, remark=remark, protocol=proto, credential_uuid=link.get("cluster_uuid_alias"))
             _add(uri, f"{uid}:main", "main", host)
         except Exception:
             pass
@@ -3853,7 +3970,7 @@ def _node_sync_share_variants(uid: str, link: dict, host: str, c: dict) -> list[
                         link, target=str(target), domain=domain, cdn=False,
                         cdn_name=extra_name, extra_name=extra_name,
                     )
-                    uri = generate_share_link(uid, str(target), remark=remark, protocol=proto, sni_host=domain)
+                    uri = generate_share_link(uid, str(target), remark=remark, protocol=proto, sni_host=domain, credential_uuid=link.get("cluster_uuid_alias"))
                     sid = f"{uid}:extra:{slug}:{target}"
                     _add(uri, sid, extra_name, str(target))
                 except Exception:
@@ -3874,13 +3991,34 @@ def _node_sync_share_variants(uid: str, link: dict, host: str, c: dict) -> list[
                         link, target=str(target), domain=domain, cdn=True,
                         cdn_name=cdn_name, extra_name=cdn_name,
                     )
-                    uri = generate_share_link(uid, str(target), remark=remark, protocol=proto, sni_host=domain)
+                    uri = generate_share_link(uid, str(target), remark=remark, protocol=proto, sni_host=domain, credential_uuid=link.get("cluster_uuid_alias"))
                     sid = f"{uid}:cf:{slug}:{target}"
                     _add(uri, sid, cdn_name, str(target))
                 except Exception:
                     continue
 
     return out
+
+
+
+class _JsonRequest:
+    def __init__(self, data=None):
+        self._data = data or {}
+    async def json(self):
+        return self._data
+
+
+async def _cluster_auto_sync_loop():
+    """نود متصل، تغییرات را حداکثر طی چند ثانیه به مرکزی می‌فرستد."""
+    await asyncio.sleep(3)
+    while True:
+        try:
+            c = _cluster()
+            if _cluster_role() == "node" and c.get("node_token") and c.get("central_url") and _as_bool(c.get("auto_sync", True)):
+                await api_cluster_sync_now(_JsonRequest(), True)
+        except Exception as exc:
+            logger.debug("automatic cluster sync failed: %s", exc)
+        await asyncio.sleep(6)
 
 
 @app.post("/api/cluster/sync-now")
@@ -3911,8 +4049,6 @@ async def api_cluster_sync_now(request: Request, _=Depends(require_auth)):
     async with LINKS_LOCK:
         for uid, link in LINKS.items():
             if not is_link_allowed(link):
-                continue
-            if link.get("is_multi_child"):
                 continue
             if not _as_bool(link.get("sync_to_central", True)):
                 continue

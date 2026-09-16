@@ -1082,6 +1082,17 @@ a{color:inherit;text-decoration:none}
 }
 @keyframes cmSlideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 
+
+/* 2026 calm product UI — no neon, no decorative gradients */
+:root{--bg:#f6f7f8;--bg2:#fff;--bg3:#eef0f2;--card:#fff;--card-b:#e3e5e8;--card-bh:#cdd1d5;--accent:#315f73;--accent2:#244b5d;--accent-d:#e8eff2;--t1:#252824;--t2:#626861;--t3:#858b84;--radius:12px;--shadow:0 1px 2px rgba(20,24,22,.04);--shadow-md:0 8px 24px rgba(20,24,22,.06);--shadow-lg:0 16px 42px rgba(20,24,22,.08)}
+[data-theme="dark"]{--bg:#191919;--bg2:#202020;--bg3:#292928;--card:#202020;--card-b:rgba(255,255,255,.14);--card-bh:rgba(255,255,255,.24);--accent:#7fa7b8;--accent2:#a8c5d0;--accent-d:rgba(127,167,184,.12);--t1:#fff;--t2:rgba(255,255,255,.68);--t3:rgba(255,255,255,.48);--shadow:0 1px 2px rgba(0,0,0,.25);--shadow-md:0 8px 24px rgba(0,0,0,.24);--shadow-lg:0 16px 42px rgba(0,0,0,.32)}
+body,[data-theme="dark"] body{background:var(--bg)!important;font-size:15px;line-height:1.65}
+.sidebar{box-shadow:none;background:var(--bg2);width:252px}.main{margin-right:252px;max-width:none;padding:32px clamp(24px,3vw,48px) 80px}.brand-mark,.cp-head-icon,.srv-hero-icon,.pw-hero-icon,.sub-card-icon,.modal-v2-icon,.lmodal-icon,.conn-avatar{background:var(--accent)!important;background-image:none!important;box-shadow:none!important}.logo-img{box-shadow:none}.nav-it{color:var(--t2);border:0}.nav-it.on{background:var(--accent-d);color:var(--accent2);border:0}.nav-it:hover{background:var(--bg3)}
+.card,.metric,.create-panel,.srv-panel,.pw-panel,.vless-box,.traf-main-stat,.traf-mini,.traf-chart-card,.sub-card,.cfg-card,.conn-card-v2,.dash-chart-card,.stat-card-v2,.multi-group-card{background:var(--card)!important;background-image:none!important;border:1px solid var(--card-b)!important;border-radius:12px!important;box-shadow:var(--shadow)!important;transform:none!important}.card:hover,.cfg-card:hover,.sub-card:hover,.conn-card-v2:hover{border-color:var(--card-bh)!important;box-shadow:var(--shadow-md)!important;transform:none!important}.create-panel::before,.srv-panel::before,.pw-panel::before,.vless-box::before,.traf-main-stat::before,.sub-card-top::before,.modal-v2-head::before,.conn-card-v2-glow{display:none!important}.sub-card-top,.modal-v2-head,.lmodal-head{background:var(--bg3)!important;background-image:none!important}.btn,.cp-submit-btn,.pw-submit,.modal-v2-btn-submit,.upd-install-btn{box-shadow:none!important;background-image:none!important;border-radius:8px!important;min-height:40px}.btn-p,.cp-submit-btn,.pw-submit,.modal-v2-btn-submit{background:var(--accent)!important}.btn:hover,.cp-submit-btn:hover,.pw-submit:hover{transform:none!important;filter:brightness(.96)}.fi,.fs,.cm-input,.modal-v2-input,.pw-input,.subs-search input,.lmodal-search input{background:var(--bg2)!important;border:1px solid var(--card-b)!important;color:var(--t1)!important;min-height:44px}.path-field{display:flex;gap:8px}.path-field .cm-input{flex:1}.path-random-btn{border:1px solid var(--card-b);background:var(--bg3);color:var(--t1);border-radius:8px;padding:0 14px;font-family:inherit;min-height:44px;cursor:pointer;white-space:nowrap}.uuid-unify-option{margin:12px 24px 0;padding:12px;border:1px solid var(--card-b);border-radius:10px;display:flex;align-items:flex-start;gap:10px;background:var(--bg3);cursor:pointer}.uuid-unify-option input{width:18px;height:18px;margin-top:2px}.uuid-unify-option span{display:flex;flex-direction:column}.uuid-unify-option small{color:var(--t3);margin-top:2px}.cluster-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.cluster-kpi{background:var(--card);border:1px solid var(--card-b);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px}.cluster-kpi>i{width:42px;height:42px;border-radius:10px;background:var(--accent-d);color:var(--accent);display:grid;place-items:center;font-size:20px}.cluster-kpi div{display:flex;flex-direction:column}.cluster-kpi b{font-size:20px}.cluster-kpi span{font-size:11px;color:var(--t3)}.cluster-card{padding:24px!important}.lmodal-quickbar{overflow-x:auto;padding-bottom:4px}.node-group-qbtn{flex:0 0 auto}
+@media(max-width:900px){.sidebar{transform:translateX(100%);width:min(86vw,320px)}.sidebar.open{transform:none}.main{margin-right:0;padding:76px 20px 72px}.mob-top{display:flex}.sb-close{display:flex}.cluster-kpis{grid-template-columns:1fr 1fr}.g2,.g3{grid-template-columns:1fr!important}}
+@media(max-width:520px){body{font-size:15px}.main{padding:68px 16px 64px}.topbar,.ov-topbar{align-items:stretch}.tb-right,.ov-top-actions{width:100%}.tb-right .btn,.ov-top-actions .btn{flex:1;justify-content:center}.cfg-row{align-items:flex-start;gap:10px;padding:14px;flex-wrap:wrap}.cfg-identity{min-width:0;flex:1}.cfg-actions{width:100%;overflow-x:auto;padding-top:8px}.sub-grid,.conn-grid-v2{grid-template-columns:minmax(0,1fr)!important}.cluster-kpis{grid-template-columns:1fr}.cluster-card{padding:16px!important}.form-row>*{width:100%!important;min-width:0!important}.path-field{flex-direction:column}.path-random-btn{width:100%}.modal-v2{width:calc(100% - 20px);max-height:94dvh}.lmodal-footer{padding:12px 14px;flex-direction:column;align-items:stretch}.lmodal-footer-btns{width:100%}.lmodal-footer-btns .btn{flex:1;justify-content:center}.uuid-unify-option{margin:10px 14px 0}.info-strip{padding:14px}.info-item{min-width:100%}.qa-grid{grid-template-columns:repeat(2,1fr)!important}}
+@supports(padding:max(0px)){.mob-top{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right));padding-top:env(safe-area-inset-top);height:calc(52px + env(safe-area-inset-top))}.main{padding-bottom:max(72px,env(safe-area-inset-bottom))}.modal-bg{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
 
 <style id="oxnet-dashboard-redesign">
@@ -2097,6 +2108,19 @@ body:before,body:after,.dash-main-card:before,.stat-card-v2:before,.sub-card-top
 .vless-box,.stat-card-v2{min-width:0!important;overflow:hidden!important}.vl-code{max-width:100%!important;overflow-x:auto!important}.vl-actions{max-width:100%!important;flex-wrap:wrap!important}.spark{max-width:44%!important}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 </style>
+<style>
+/* 2026 calm product UI — no neon, no decorative gradients */
+:root{--bg:#f6f7f8;--bg2:#fff;--bg3:#eef0f2;--card:#fff;--card-b:#e3e5e8;--card-bh:#cdd1d5;--accent:#315f73;--accent2:#244b5d;--accent-d:#e8eff2;--t1:#252824;--t2:#626861;--t3:#858b84;--radius:12px;--shadow:0 1px 2px rgba(20,24,22,.04);--shadow-md:0 8px 24px rgba(20,24,22,.06);--shadow-lg:0 16px 42px rgba(20,24,22,.08)}
+[data-theme="dark"]{--bg:#191919;--bg2:#202020;--bg3:#292928;--card:#202020;--card-b:rgba(255,255,255,.14);--card-bh:rgba(255,255,255,.24);--accent:#7fa7b8;--accent2:#a8c5d0;--accent-d:rgba(127,167,184,.12);--t1:#fff;--t2:rgba(255,255,255,.68);--t3:rgba(255,255,255,.48);--shadow:0 1px 2px rgba(0,0,0,.25);--shadow-md:0 8px 24px rgba(0,0,0,.24);--shadow-lg:0 16px 42px rgba(0,0,0,.32)}
+body,[data-theme="dark"] body{background:var(--bg)!important;font-size:15px;line-height:1.65}
+.sidebar{box-shadow:none;background:var(--bg2);width:252px}.main{margin-right:252px;max-width:none;padding:32px clamp(24px,3vw,48px) 80px}.brand-mark,.cp-head-icon,.srv-hero-icon,.pw-hero-icon,.sub-card-icon,.modal-v2-icon,.lmodal-icon,.conn-avatar{background:var(--accent)!important;background-image:none!important;box-shadow:none!important}.logo-img{box-shadow:none}.nav-it{color:var(--t2);border:0}.nav-it.on{background:var(--accent-d);color:var(--accent2);border:0}.nav-it:hover{background:var(--bg3)}
+.card,.metric,.create-panel,.srv-panel,.pw-panel,.vless-box,.traf-main-stat,.traf-mini,.traf-chart-card,.sub-card,.cfg-card,.conn-card-v2,.dash-chart-card,.stat-card-v2,.multi-group-card{background:var(--card)!important;background-image:none!important;border:1px solid var(--card-b)!important;border-radius:12px!important;box-shadow:var(--shadow)!important;transform:none!important}.card:hover,.cfg-card:hover,.sub-card:hover,.conn-card-v2:hover{border-color:var(--card-bh)!important;box-shadow:var(--shadow-md)!important;transform:none!important}.create-panel::before,.srv-panel::before,.pw-panel::before,.vless-box::before,.traf-main-stat::before,.sub-card-top::before,.modal-v2-head::before,.conn-card-v2-glow{display:none!important}.sub-card-top,.modal-v2-head,.lmodal-head{background:var(--bg3)!important;background-image:none!important}.btn,.cp-submit-btn,.pw-submit,.modal-v2-btn-submit,.upd-install-btn{box-shadow:none!important;background-image:none!important;border-radius:8px!important;min-height:40px}.btn-p,.cp-submit-btn,.pw-submit,.modal-v2-btn-submit{background:var(--accent)!important}.btn:hover,.cp-submit-btn:hover,.pw-submit:hover{transform:none!important;filter:brightness(.96)}.fi,.fs,.cm-input,.modal-v2-input,.pw-input,.subs-search input,.lmodal-search input{background:var(--bg2)!important;border:1px solid var(--card-b)!important;color:var(--t1)!important;min-height:44px}.path-field{display:flex;gap:8px}.path-field .cm-input{flex:1}.path-random-btn{border:1px solid var(--card-b);background:var(--bg3);color:var(--t1);border-radius:8px;padding:0 14px;font-family:inherit;min-height:44px;cursor:pointer;white-space:nowrap}.uuid-unify-option{margin:12px 24px 0;padding:12px;border:1px solid var(--card-b);border-radius:10px;display:flex;align-items:flex-start;gap:10px;background:var(--bg3);cursor:pointer}.uuid-unify-option input{width:18px;height:18px;margin-top:2px}.uuid-unify-option span{display:flex;flex-direction:column}.uuid-unify-option small{color:var(--t3);margin-top:2px}.cluster-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.cluster-kpi{background:var(--card);border:1px solid var(--card-b);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px}.cluster-kpi>i{width:42px;height:42px;border-radius:10px;background:var(--accent-d);color:var(--accent);display:grid;place-items:center;font-size:20px}.cluster-kpi div{display:flex;flex-direction:column}.cluster-kpi b{font-size:20px}.cluster-kpi span{font-size:11px;color:var(--t3)}.cluster-card{padding:24px!important}.lmodal-quickbar{overflow-x:auto;padding-bottom:4px}.node-group-qbtn{flex:0 0 auto}
+@media(max-width:900px){.sidebar{transform:translateX(100%);width:min(86vw,320px)}.sidebar.open{transform:none}.main{margin-right:0;padding:76px 20px 72px}.mob-top{display:flex}.sb-close{display:flex}.cluster-kpis{grid-template-columns:1fr 1fr}.g2,.g3{grid-template-columns:1fr!important}}
+@media(max-width:520px){body{font-size:15px}.main{padding:68px 16px 64px}.topbar,.ov-topbar{align-items:stretch}.tb-right,.ov-top-actions{width:100%}.tb-right .btn,.ov-top-actions .btn{flex:1;justify-content:center}.cfg-row{align-items:flex-start;gap:10px;padding:14px;flex-wrap:wrap}.cfg-identity{min-width:0;flex:1}.cfg-actions{width:100%;overflow-x:auto;padding-top:8px}.sub-grid,.conn-grid-v2{grid-template-columns:minmax(0,1fr)!important}.cluster-kpis{grid-template-columns:1fr}.cluster-card{padding:16px!important}.form-row>*{width:100%!important;min-width:0!important}.path-field{flex-direction:column}.path-random-btn{width:100%}.modal-v2{width:calc(100% - 20px);max-height:94dvh}.lmodal-footer{padding:12px 14px;flex-direction:column;align-items:stretch}.lmodal-footer-btns{width:100%}.lmodal-footer-btns .btn{flex:1;justify-content:center}.uuid-unify-option{margin:10px 14px 0}.info-strip{padding:14px}.info-item{min-width:100%}.qa-grid{grid-template-columns:repeat(2,1fr)!important}}
+@supports(padding:max(0px)){.mob-top{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right));padding-top:env(safe-area-inset-top);height:calc(52px + env(safe-area-inset-top))}.main{padding-bottom:max(72px,env(safe-area-inset-bottom))}.modal-bg{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+</style>
 </head>
 <body>
 <div class="toast" id="toast"></div>
@@ -2123,7 +2147,7 @@ body:before,body:after,.dash-main-card:before,.stat-card-v2:before,.sub-card-top
           <input class="cm-input" id="nl-label" placeholder="مثلاً: PlanAsli">
         </div>
         <div class="cm-field"><label>Path اختصاصی</label>
-          <input class="cm-input" id="nl-path" dir="ltr" placeholder="PlanAsli">
+          <div class="path-field"><input class="cm-input" id="nl-path" dir="ltr" placeholder="مسیر کوتاه و دلخواه"><button type="button" class="path-random-btn" onclick="generateRandomPath()"><i class="ti ti-dice-5"></i> ساخت تصادفی</button></div>
           <div class="cm-note" style="margin-top:8px"><i class="ti ti-info-circle"></i> اگر بنویسید PlanAsli، مسیر WebSocket به شکل /ws/PlanAsli ساخته می‌شود.</div>
         </div>
         <div class="cm-row2">
@@ -2480,6 +2504,7 @@ body:before,body:after,.dash-main-card:before,.stat-card-v2:before,.sub-card-top
     <div class="nav-it" data-pg="connections"><i class="ti ti-plug-connected"></i> اتصالات <span class="nav-badge" id="conns-nb">0</span></div>
     <div class="nav-it" data-pg="customers"><i class="ti ti-users"></i> کاربران</div>
     <div class="nav-it" data-pg="cloudflare"><i class="ti ti-cloud"></i> کلادفلیر</div>
+    <div class="nav-it" data-pg="cluster"><i class="ti ti-topology-star-3"></i> شبکه نودها <span class="nav-badge" id="nodes-nb">0</span></div>
     <div class="nav-sec">سیستم</div>
     <div class="nav-it" data-pg="security"><i class="ti ti-shield-lock"></i> امنیت</div>
     <div class="nav-it" data-pg="logs"><i class="ti ti-history"></i> لاگ فعالیت‌ها</div>
@@ -2917,6 +2942,11 @@ body:before,body:after,.dash-main-card:before,.stat-card-v2:before,.sub-card-top
     </div>
   </div>
 </section>
+<section class="pg" id="pg-cluster">
+  <div class="topbar"><div><div class="tb-title"><i class="ti ti-topology-star-3"></i> شبکه نودها</div><div class="tb-sub">اتصال زنده، گروه‌های راه‌دور و کنترل یکپارچه پنل‌ها</div></div><div class="tb-right"><span class="badge bg-green"><span class="dot dg"></span> همگام‌سازی خودکار</span></div></div>
+  <div class="cluster-kpis"><div class="cluster-kpi"><i class="ti ti-server"></i><div><b id="cluster-kpi-nodes">۰</b><span>نود ثبت‌شده</span></div></div><div class="cluster-kpi"><i class="ti ti-link"></i><div><b id="cluster-kpi-configs">۰</b><span>کانفیگ راه‌دور</span></div></div><div class="cluster-kpi"><i class="ti ti-refresh"></i><div><b>۶ ثانیه</b><span>چرخه همگام‌سازی</span></div></div></div>
+  <div id="cluster-page-slot"></div>
+</section>
 <section class="pg" id="pg-settings">
   <div class="topbar"><div><div class="tb-title"><i class="ti ti-settings"></i> تنظیمات</div></div></div>
   <div class="g2">
@@ -2962,8 +2992,8 @@ body:before,body:after,.dash-main-card:before,.stat-card-v2:before,.sub-card-top
       <div class="cl" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><span>برای اینکه بعد از Redeploy داده‌ها پاک نشوند، در Railway یک <b>Volume</b> بساز و روی مسیر <b dir="ltr">/data</b> مونت کن. مسیر فعلی: <b dir="ltr" id="data-dir-path">—</b> · پایدار: <b id="data-dir-ok">—</b></span></div>
     </div>
 
-    <div class="card" style="margin-top:16px;grid-column:1/-1">
-      <div class="card-title"><i class="ti ti-server-2"></i> کلاستر · مرکزی / نود</div>
+    <div class="card cluster-card" id="cluster-management-card" style="margin-top:0;grid-column:1/-1">
+      <div class="card-title"><i class="ti ti-server-2"></i> نقش و اتصال پنل</div>
       <div class="cl" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><span>
         برای چند منطقه Railway (آمریکا / هلند / سنگاپور): یک پنل را <b>مرکزی</b> کن و بقیه را <b>نود</b>.
         نود بعد از اتصال، کانفیگ‌هایش را به مرکزی می‌فرستد تا یکجا مدیریت شوند.
@@ -3018,7 +3048,7 @@ body:before,body:after,.dash-main-card:before,.stat-card-v2:before,.sub-card-top
           <input class="fi" id="cluster-join-secret" dir="ltr" placeholder="secret از مرکزی" style="width:100%">
         </div>
         <div class="cl" style="margin-top:10px"><i class="ti ti-key"></i><span>توکن نود: <b dir="ltr" id="cluster-node-token">—</b></span></div>
-        <div class="cluster-sync-summary" id="cluster-sync-summary">کانفیگ‌های انتخاب‌شده از صفحه کانفیگ‌ها ارسال می‌شوند.</div>
+        <div class="cluster-sync-summary" id="cluster-sync-summary">تغییرات کانفیگ‌ها و گروه‌ها خودکار و زنده ارسال می‌شوند.</div>
         <div style="margin-top:12px;padding:12px;border:1px solid var(--card-b);border-radius:12px;background:var(--bg)">
           <div style="font-size:12px;font-weight:700;margin-bottom:8px">دامنه‌های ارسالی به مرکزی</div>
           <div class="cl" style="margin-bottom:10px;font-size:12px">دامنه فرعی و IP تمیز را از منوی <b>کلادفلیر / دامنه فرعی</b> روی همین نود اضافه کن، بعد اینجا انتخاب کن کدام‌ها به مرکزی بروند.</div>
@@ -3028,7 +3058,7 @@ body:before,body:after,.dash-main-card:before,.stat-card-v2:before,.sub-card-top
         </div>
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-p btn-sm" type="button" onclick="connectToCentral()"><i class="ti ti-plug-connected"></i> اتصال به مرکزی</button>
-          <button class="btn btn-g btn-sm" type="button" onclick="syncNodeToCentral()"><i class="ti ti-cloud-upload"></i> همگام‌سازی انتخاب‌ها</button>
+          <button class="btn btn-g btn-sm" type="button" onclick="syncNodeToCentral()"><i class="ti ti-refresh"></i> ارسال مجدد اکنون</button>
         </div>
       </div>
       <div style="margin-top:14px">
@@ -3235,7 +3265,7 @@ overlay.addEventListener('click',closeSb);
 function navTo(name){
   document.querySelectorAll('.nav-it').forEach(n=>n.classList.toggle('on',n.dataset.pg===name));
   document.querySelectorAll('.pg').forEach(p=>p.classList.toggle('on',p.id==='pg-'+name));
-  const loaders={links:loadLinks,connections:loadConns,errors:loadErrs,subscriptions:loadSubsPage,subgroups:loadSubs,logs:loadActivity,settings:()=>{loadDbStatus();loadPanelDomain();},customers:loadCustomers,cloudflare:()=>{loadCloudflareDomains();loadExtraDomains();},security:loadSecuritySettings};  if(loaders[name])loaders[name]();
+  const loaders={links:loadLinks,connections:loadConns,errors:loadErrs,subscriptions:loadSubsPage,subgroups:loadSubs,logs:loadActivity,settings:()=>{loadDbStatus();loadPanelDomain();},cluster:loadClusterStatus,customers:loadCustomers,cloudflare:()=>{loadCloudflareDomains();loadExtraDomains();},security:loadSecuritySettings};  if(loaders[name])loaders[name]();
   closeSb();window.scrollTo({top:0,behavior:'smooth'});
 }
 document.querySelectorAll('.nav-it').forEach(el=>el.addEventListener('click',()=>navTo(el.dataset.pg)));
@@ -3861,6 +3891,9 @@ async function openSubLinks(sub_id,name){
       const sid=l.sub_id;
       return !sid || sid===sub_id;
     });
+    const quick=document.querySelector('.lmodal-quickbar');
+    if(quick){quick.querySelectorAll('.node-group-qbtn').forEach(x=>x.remove());const groups=new Map();lmodalLinks.filter(x=>x.remote_node).forEach(x=>(x.remote_group_names||[]).forEach((g,i)=>{const key=(x.node_id||'node')+'|'+((x.remote_group_ids||[])[i]||g);if(!groups.has(key))groups.set(key,{name:g,node:x.node_name,ids:[]});groups.get(key).ids.push(x.uuid)}));[...groups.values()].slice(0,12).forEach(g=>{const b=document.createElement('button');b.className='lmodal-qbtn node-group-qbtn';b.textContent=(g.node||'نود')+' / '+g.name;b.onclick=()=>{g.ids.forEach(id=>lmodalInSub.add(id));renderLmodalList(lmodalLinks)};quick.insertBefore(b,document.getElementById('lmodal-count'))})}
+    const uu=document.getElementById('sub-unify-uuid');if(uu)uu.checked=!!(thisSub&&thisSub.unified_uuid);
     renderLmodalList(lmodalLinks);
   }catch(e){toast('خطا در بارگذاری','err')}
 }
@@ -4180,11 +4213,11 @@ async function loadClusterStatus(){
     clusterRoleChanged();
     const list=document.getElementById('cluster-nodes-list');
     if(list && d.role==='central'){
-      const nodes=d.nodes||[];
+      const nodes=d.nodes||[];const nk=document.getElementById('cluster-kpi-nodes');if(nk)nk.textContent=toFa(nodes.length);const ck=document.getElementById('cluster-kpi-configs');if(ck)ck.textContent=toFa(d.remote_config_count||0);const nb=document.getElementById('nodes-nb');if(nb)nb.textContent=toFa(nodes.length);
       if(!nodes.length){list.innerHTML='هنوز نودی ثبت نشده';}
       else{
         list.innerHTML=nodes.map(n=>`<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--card-b)">
-          <div><b>${esc(n.name||'Node')}</b> <span class="badge bg-blue">${esc(n.region||'—')}</span>
+          <div><b>${esc(n.name||'Node')}</b> <span class="badge ${n.online?'bg-green':'bg-red'}"><span class="dot ${n.online?'dg':'dr'}"></span>${n.online?'متصل':'آفلاین'}</span> <span class="badge bg-blue">${esc(n.region||'—')}</span>
           <div style="font-size:11px;color:var(--t3);margin-top:3px" dir="ltr">${esc(n.host||'')} · ${toFa(n.config_count||0)} کانفیگ · ${esc((n.last_seen||'').slice(0,19))}</div></div>
           <button class="btn btn-d btn-sm" onclick="deleteClusterNode('${esc(n.id)}')"><i class="ti ti-trash"></i></button>
         </div>`).join('');
@@ -4722,8 +4755,22 @@ async function sendSupportMsg(){
   inp.disabled = false;
   inp.focus();
 }
+
+function generateRandomPath(){
+  const alphabet='abcdefghjkmnpqrstuvwxyz23456789';
+  const bytes=new Uint8Array(9); crypto.getRandomValues(bytes);
+  const value=Array.from(bytes,b=>alphabet[b%alphabet.length]).join('');
+  const input=document.getElementById('nl-path'); if(input){input.value=value;input.dispatchEvent(new Event('input'))}
+  toast('مسیر کوتاه و ناشناس ساخته شد','ok');
+}
+function mountClusterPage(){
+  const card=document.getElementById('cluster-management-card'),slot=document.getElementById('cluster-page-slot');
+  if(card&&slot&&!slot.contains(card))slot.appendChild(card);
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   await checkAuth();
+  mountClusterPage();
   initCharts();
   updateGreeting();
   loadPanelDomain();
@@ -4740,7 +4787,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadAnnouncements();
   loadDbStatus();
   renderThemeSwatches();
-  // بخش مرکزی حذف شده است
+  loadClusterStatus();
 
   setInterval(fetchStats, 2000);
   setInterval(() => {
@@ -4750,6 +4797,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (document.getElementById('pg-connections').classList.contains('on')) loadConns();
     if (document.getElementById('pg-logs').classList.contains('on')) loadActivity();
     if (document.getElementById('pg-support').classList.contains('on')) loadSupportMsgs();
+    if (document.getElementById('pg-cluster').classList.contains('on')) loadClusterStatus();
     // بروزرسانی خودکار حذف شده است
   }, 5000);
   setInterval(loadAnnouncements, 3000);
