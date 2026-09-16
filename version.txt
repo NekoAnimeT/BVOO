@@ -1,3 +1,2 @@
-version=4.2.1
-description=Unified: ChatGPT UI + group-first modal + node cards redesign
-updated_at=1789605000
+version=4.2.5
+description=Full country flags BE NO etc + region select + host/name detect

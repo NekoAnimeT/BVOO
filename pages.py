@@ -2451,6 +2451,13 @@ body,[data-theme="dark"] body{background:var(--bg)!important;font-size:15px;line
       <div class="lmodal-quickbar"><button class="lmodal-qbtn" onclick="lmodalSelectAll(true)">انتخاب همه</button><button class="lmodal-qbtn" onclick="lmodalSelectAll(false)">حذف انتخاب</button><span class="lmodal-count" id="lmodal-count">۰ انتخاب شده</span></div>
     </div>
     <div class="lmodal-list" id="modal-links-body"></div>
+    <label class="uuid-unify-option" for="sub-unify-uuid">
+      <input type="checkbox" id="sub-unify-uuid">
+      <span>
+        <b>یکسان‌سازی UUID کانفیگ‌های نود</b>
+        <small>در لینک ساب، UUID همه کانفیگ‌های نود این اشتراک یکسان می‌شود (بدون خراب کردن تونل نود).</small>
+      </span>
+    </label>
     <div class="lmodal-footer"><div class="lmodal-footer-info"><i class="ti ti-info-circle"></i> تغییرات بعد از ذخیره اعمال می‌شود.</div><div class="lmodal-footer-btns"><button class="btn btn-o" onclick="closeModal('modal-links')">انصراف</button><button class="btn btn-p" onclick="saveSubLinks()"><i class="ti ti-device-floppy"></i> ذخیره</button></div></div>
   </div>
 </div>
@@ -3015,11 +3022,34 @@ body,[data-theme="dark"] body{background:var(--bg)!important;font-size:15px;line
           <label>منطقه</label>
           <select class="fi" id="cluster-region">
             <option value="">—</option>
-            <option value="us-east">آمریکا شرق</option>
-            <option value="us-west">آمریکا غرب</option>
-            <option value="nl">هلند</option>
-            <option value="sg">سنگاپور</option>
-            <option value="custom">سایر</option>
+            <option value="us-east">🇺🇸 آمریکا شرق</option>
+            <option value="us-west">🇺🇸 آمریکا غرب</option>
+            <option value="ca">🇨🇦 کانادا</option>
+            <option value="gb">🇬🇧 انگلیس</option>
+            <option value="ie">🇮🇪 ایرلند</option>
+            <option value="de">🇩🇪 آلمان</option>
+            <option value="fr">🇫🇷 فرانسه</option>
+            <option value="nl">🇳🇱 هلند</option>
+            <option value="be">🇧🇪 بلژیک</option>
+            <option value="ch">🇨🇭 سوئیس</option>
+            <option value="at">🇦🇹 اتریش</option>
+            <option value="it">🇮🇹 ایتالیا</option>
+            <option value="es">🇪🇸 اسپانیا</option>
+            <option value="pt">🇵🇹 پرتغال</option>
+            <option value="se">🇸🇪 سوئد</option>
+            <option value="no">🇳🇴 نروژ</option>
+            <option value="dk">🇩🇰 دانمارک</option>
+            <option value="fi">🇫🇮 فنلاند</option>
+            <option value="pl">🇵🇱 لهستان</option>
+            <option value="cz">🇨🇿 چک</option>
+            <option value="tr">🇹🇷 ترکیه</option>
+            <option value="sg">🇸🇬 سنگاپور</option>
+            <option value="jp">🇯🇵 ژاپن</option>
+            <option value="kr">🇰🇷 کره</option>
+            <option value="hk">🇭🇰 هنگ‌کنگ</option>
+            <option value="au">🇦🇺 استرالیا</option>
+            <option value="ae">🇦🇪 امارات</option>
+            <option value="custom">🌐 سایر</option>
           </select>
         </div>
       </div>
@@ -4024,14 +4054,21 @@ function filterLmodal(q){
 async function saveSubLinks(){
   if(!currentSubId)return;
   const link_ids=[...lmodalInSub];
+  const unifyEl=document.getElementById('sub-unify-uuid');
+  const unify_uuid=!!(unifyEl&&unifyEl.checked);
   try{
-    // فقط membership همین گروه — دیگر sub_id بقیه را null نمی‌کنیم
-    const r=await authF('/api/subs/'+currentSubId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({link_ids})});
-    if(!r.ok)throw new Error();
+    // membership + یکسان‌سازی UUID در صورت تیک
+    const r=await authF('/api/subs/'+currentSubId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({link_ids,unify_uuid})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(d.detail||'خطا');
     closeModal('modal-links');
-    toast('کانفیگ‌های گروه ذخیره شدند','ok');
+    if(unify_uuid&&d.unified_uuid){
+      toast('ذخیره شد · UUID یکسان: '+String(d.unified_uuid).slice(0,8)+'…','ok');
+    }else{
+      toast('کانفیگ‌های گروه ذخیره شدند','ok');
+    }
     loadSubs();loadLinks();
-  }catch(e){toast('خطا در ذخیره','err')}
+  }catch(e){toast(String(e.message||e)||'خطا در ذخیره','err')}
 }
 async function cutOrphanConfigs(){
   if(!confirm('همه کانفیگ‌هایی که اشتراک‌شان حذف شده یا نامعتبر است قطع شوند؟ (محلی + نود)'))return;
@@ -4276,6 +4313,102 @@ function clusterRoleChanged(){
   if(cb) cb.style.display=role==='central'?'block':'none';
   if(nb) nb.style.display=role==='node'?'block':'none';
 }
+function nodeLocationInfo(region,name,host){
+  // ISO + نام رایج → پرچم و برچسب فارسی
+  const CC={
+    us:['🇺🇸','آمریکا'], usa:['🇺🇸','آمریکا'], 'us-east':['🇺🇸','آمریکا شرق'], 'us-west':['🇺🇸','آمریکا غرب'],
+    ca:['🇨🇦','کانادا'], mx:['🇲🇽','مکزیک'],
+    gb:['🇬🇧','انگلیس'], uk:['🇬🇧','انگلیس'], ie:['🇮🇪','ایرلند'],
+    de:['🇩🇪','آلمان'], fr:['🇫🇷','فرانسه'], nl:['🇳🇱','هلند'], be:['🇧🇪','بلژیک'], lu:['🇱🇺','لوکزامبورگ'],
+    ch:['🇨🇭','سوئیس'], at:['🇦🇹','اتریش'], li:['🇱🇮','لیختن‌اشتاین'],
+    it:['🇮🇹','ایتالیا'], es:['🇪🇸','اسپانیا'], pt:['🇵🇹','پرتغال'],
+    se:['🇸🇪','سوئد'], no:['🇳🇴','نروژ'], dk:['🇩🇰','دانمارک'], fi:['🇫🇮','فنلاند'], is:['🇮🇸','ایسلند'],
+    pl:['🇵🇱','لهستان'], cz:['🇨🇿','چک'], sk:['🇸🇰','اسلواکی'], hu:['🇭🇺','مجارستان'],
+    ro:['🇷🇴','رومانی'], bg:['🇧🇬','بلغارستان'], gr:['🇬🇷','یونان'],
+    hr:['🇭🇷','کرواسی'], si:['🇸🇮','اسلوونی'], rs:['🇷🇸','صربستان'], ba:['🇧🇦','بوسنی'],
+    ua:['🇺🇦','اوکراین'], by:['🇧🇾','بلاروس'], md:['🇲🇩','مولداوی'],
+    lt:['🇱🇹','لیتوانی'], lv:['🇱🇻','لتونی'], ee:['🇪🇪','استونی'],
+    ru:['🇷🇺','روسیه'], tr:['🇹🇷','ترکیه'], cy:['🇨🇾','قبرس'], mt:['🇲🇹','مالت'],
+    sg:['🇸🇬','سنگاپور'], jp:['🇯🇵','ژاپن'], kr:['🇰🇷','کره جنوبی'], cn:['🇨🇳','چین'],
+    hk:['🇭🇰','هنگ‌کنگ'], tw:['🇹🇼','تایوان'], in:['🇮🇳','هند'], id:['🇮🇩','اندونزی'],
+    my:['🇲🇾','مالزی'], th:['🇹🇭','تایلند'], vn:['🇻🇳','ویتنام'], ph:['🇵🇭','فیلیپین'],
+    au:['🇦🇺','استرالیا'], nz:['🇳🇿','نیوزیلند'],
+    ae:['🇦🇪','امارات'], sa:['🇸🇦','عربستان'], qa:['🇶🇦','قطر'], bh:['🇧🇭','بحرین'],
+    kw:['🇰🇼','کویت'], om:['🇴🇲','عمان'], il:['🇮🇱','اسرائیل'],
+    br:['🇧🇷','برزیل'], ar:['🇦🇷','آرژانتین'], cl:['🇨🇱','شیلی'], co:['🇨🇴','کلمبیا'],
+    za:['🇿🇦','آفریقای جنوبی'], eg:['🇪🇬','مصر'], ng:['🇳🇬','نیجریه'],
+    kz:['🇰🇿','قزاقستان'], uz:['🇺🇿','ازبکستان'], ge:['🇬🇪','گرجستان'], am:['🇦🇲','ارمنستان'], az:['🇦🇿','آذربایجان'],
+  };
+  const cityHints=[
+    [/california|oregon|los\s*angeles|sfo|seattle|us-west/, 'us-west'],
+    [/virginia|ohio|us-east|new\s*york|nyc/, 'us-east'],
+    [/frankfurt|berlin|munich|hamburg|deutschland|germany|vibenest|dockup|antilak/, 'de'],
+    [/paris|france|pxxl|ramnaym/, 'fr'],
+    [/amsterdam|holland|netherlands/, 'nl'],
+    [/brussels|belgium/, 'be'],
+    [/helsinki|finland|buildfy/, 'fi'],
+    [/oslo|norway/, 'no'],
+    [/stockholm|sweden/, 'se'],
+    [/copenhagen|denmark/, 'dk'],
+    [/london|britain|england/, 'uk'],
+    [/dublin|ireland/, 'ie'],
+    [/zurich|geneva|switzerland/, 'ch'],
+    [/vienna|austria/, 'at'],
+    [/madrid|barcelona|spain/, 'es'],
+    [/milan|rome|italy/, 'it'],
+    [/lisbon|portugal/, 'pt'],
+    [/warsaw|poland/, 'pl'],
+    [/prague|czech/, 'cz'],
+    [/singapore/, 'sg'],
+    [/tokyo|japan/, 'jp'],
+    [/seoul|korea/, 'kr'],
+    [/hong\s*kong/, 'hk'],
+    [/sydney|melbourne|australia/, 'au'],
+    [/toronto|montreal|canada/, 'ca'],
+    [/istanbul|turkey/, 'tr'],
+    [/dubai|uae/, 'ae'],
+    [/moscow|russia/, 'ru'],
+    [/localhost|127\.0\.0\.1/, 'local'],
+  ];
+  const norm=s=>String(s||'').toLowerCase().replace(/[_/]+/g,' ').trim();
+  const regionN=norm(region);
+  const nameN=norm(name);
+  const hostN=norm(host).replace(/^https?:\/\//,'').split('/')[0];
+  const blob=regionN+' '+nameN+' '+hostN;
+
+  const pack=code=>{
+    if(code==='local')return {flag:'💻',label:'محلی'};
+    const x=CC[code];
+    return x?{flag:x[0],label:x[1]}:null;
+  };
+
+  // 1) کد دقیق منطقه (be, no, de, ...)
+  if(regionN&&CC[regionN])return pack(regionN);
+  if(regionN==='us-east'||regionN==='us-west')return pack(regionN);
+
+  // 2) توکن‌های نام نود مثل "BE 1" یا "NO-OSLO" یا "DE4"
+  const tokens=(nameN+' '+regionN).match(/\b[a-z]{2}\b/g)||[];
+  for(const t of tokens){
+    if(CC[t])return pack(t);
+  }
+  // پیشوند عددی: de4, fr2, be1
+  const pref=(nameN.match(/\b([a-z]{2})\s*\d/i)||nameN.match(/^([a-z]{2})\d/i)||[])[1];
+  if(pref&&CC[pref.toLowerCase()])return pack(pref.toLowerCase());
+
+  // 3) TLD دامنه: example.be / site.no / host.de
+  const tld=(hostN.match(/\.([a-z]{2})(?:\.|:|$)/)||[])[1];
+  if(tld&&CC[tld]&&!['com','net','org','app','io','co','me','cv','tech','email','dev','cloud'].includes(tld)){
+    return pack(tld);
+  }
+
+  // 4) شهر / ارائه‌دهنده
+  for(const [re,code] of cityHints){
+    if(re.test(blob)){const p=pack(code);if(p)return p;}
+  }
+
+  if(regionN==='custom')return {flag:'🌐',label:'سفارشی'};
+  return {flag:'🌐',label:region||name||'نامشخص'};
+}
 async function loadClusterStatus(){
   try{
     const r=await authF('/api/cluster/status'); if(!r.ok)return;
@@ -4298,26 +4431,30 @@ async function loadClusterStatus(){
       const nodes=d.nodes||[];const nk=document.getElementById('cluster-kpi-nodes');if(nk)nk.textContent=toFa(nodes.length);const ck=document.getElementById('cluster-kpi-configs');if(ck)ck.textContent=toFa(d.remote_config_count||0);const nb=document.getElementById('nodes-nb');if(nb)nb.textContent=toFa(nodes.length);
       if(!nodes.length){list.innerHTML='<div class="empty" style="padding:20px"><i class="ti ti-server-off"></i><p>هنوز نودی ثبت نشده</p></div>';}
       else{
-        list.innerHTML='<div class="node-grid">'+nodes.map(n=>{
+        list.innerHTML='<div class="node-list">'+nodes.map(n=>{
           const online=!!n.online;
-          const seen=(n.last_seen||'').replace('T',' ').slice(0,19);
-          return `<div class="node-card ${online?'online':'offline'}">
-            <div class="node-card-top">
-              <div class="node-card-icon"><i class="ti ti-server"></i></div>
-              <div class="node-card-meta">
-                <div class="node-card-name">${esc(n.name||'Node')}</div>
-                <div class="node-card-host" dir="ltr">${esc(n.host||'—')}</div>
+          const seen=(n.last_seen||'').replace('T',' ').slice(0,16);
+          const loc=nodeLocationInfo(n.region,n.name,n.host);
+          const cfg=Number(n.config_count||0);
+          return `<div class="node-row ${online?'is-online':'is-offline'}">
+            <div class="node-row-main">
+              <div class="node-avatar flag ${online?'on':'off'}" title="${esc(loc.label)}">${loc.flag}</div>
+              <div class="node-row-text">
+                <div class="node-row-title">
+                  <span class="node-row-name">${esc(n.name||'Node')}</span>
+                  <span class="node-pill ${online?'on':'off'}"><i class="ti ti-circle-filled"></i>${online?'متصل':'آفلاین'}</span>
+                </div>
+                <div class="node-row-sub" dir="ltr">${esc(n.host||'—')}</div>
               </div>
-              <span class="node-card-status ${online?'on':'off'}"><span class="dot ${online?'dg':'dr'}"></span>${online?'متصل':'آفلاین'}</span>
             </div>
-            <div class="node-card-stats">
-              <div><b>${toFa(n.config_count||0)}</b><span>کانفیگ</span></div>
-              <div><b>${esc(n.region||'—')}</b><span>منطقه</span></div>
-              <div><b dir="ltr" style="font-size:11px">${esc(seen||'—')}</b><span>آخرین همگام</span></div>
+            <div class="node-row-meta">
+              <span class="node-meta-item node-loc" title="لوکیشن"><span class="node-flag-sm">${loc.flag}</span>${esc(loc.label)}</span>
+              <span class="node-meta-item" title="تعداد کانفیگ"><i class="ti ti-link"></i>${toFa(cfg)}</span>
+              <span class="node-meta-item" title="آخرین همگام" dir="ltr"><i class="ti ti-clock"></i>${esc(seen||'—')}</span>
             </div>
-            <div class="node-card-actions">
-              <button class="btn btn-o btn-sm" type="button" onclick="copyNodeHost('${esc(n.host||'')}')"><i class="ti ti-copy"></i> هاست</button>
-              <button class="btn btn-d btn-sm" type="button" onclick="deleteClusterNode('${esc(n.id)}')"><i class="ti ti-trash"></i></button>
+            <div class="node-row-actions">
+              <button type="button" class="node-icon-btn" title="کپی هاست" onclick="copyNodeHost('${esc(n.host||'')}')"><i class="ti ti-copy"></i></button>
+              <button type="button" class="node-icon-btn danger" title="حذف نود" onclick="deleteClusterNode('${esc(n.id)}')"><i class="ti ti-trash"></i></button>
             </div>
           </div>`;
         }).join('')+'</div>';
@@ -5071,22 +5208,36 @@ body{
 .empty{text-align:center;padding:40px 16px;color:var(--muted);font-weight:500}
 @media(max-width:640px){.stats-bar{grid-template-columns:1fr} body{padding:18px 12px 36px} .sub-name{font-size:1.3rem}}
 
-.node-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
-.node-card{background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
-.node-card.online{border-color:rgba(34,197,94,.25)}
-.node-card-top{display:flex;align-items:flex-start;gap:10px}
-.node-card-icon{width:40px;height:40px;border-radius:11px;background:var(--accent-d);color:var(--accent);display:grid;place-items:center;font-size:18px;flex-shrink:0}
-.node-card-meta{flex:1;min-width:0}
-.node-card-name{font-weight:700;font-size:13.5px;color:var(--t1)}
-.node-card-host{font-size:11px;color:var(--t3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.node-card-status{font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;background:var(--bg3);color:var(--t2);white-space:nowrap}
-.node-card-status.on{background:rgba(34,197,94,.12);color:#16A34A}
-.node-card-status.off{background:rgba(239,68,68,.1);color:#DC2626}
-.node-card-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.node-card-stats>div{background:var(--bg3);border-radius:10px;padding:8px;text-align:center}
-.node-card-stats b{display:block;font-size:13px;color:var(--t1)}
-.node-card-stats span{font-size:10px;color:var(--t3)}
-.node-card-actions{display:flex;gap:8px;justify-content:flex-end}
+/* Connected nodes — Linear-style list */
+.node-list{display:flex;flex-direction:column;gap:0;border:1px solid var(--card-b);border-radius:14px;overflow:hidden;background:var(--card)}
+.node-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto;align-items:center;gap:12px 16px;padding:14px 16px;border-bottom:1px solid var(--card-b);transition:background .15s}
+.node-row:last-child{border-bottom:none}
+.node-row:hover{background:var(--bg3)}
+.node-row-main{display:flex;align-items:center;gap:12px;min-width:0}
+.node-avatar{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:11px;font-weight:700;letter-spacing:.02em;flex-shrink:0;background:var(--bg3);color:var(--t2);border:1px solid var(--card-b)}
+.node-avatar.flag{font-size:22px;line-height:1;background:var(--bg2)}
+.node-avatar.on{box-shadow:inset 0 0 0 1.5px rgba(34,197,94,.35)}
+.node-avatar.off{opacity:.72;filter:grayscale(.25)}
+.node-flag-sm{font-size:14px;line-height:1}
+.node-row-text{min-width:0}
+.node-row-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.node-row-name{font-size:13.5px;font-weight:650;color:var(--t1)}
+.node-row-sub{font-size:11.5px;color:var(--t3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.node-pill{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:999px}
+.node-pill i{font-size:7px}
+.node-pill.on{background:rgba(34,197,94,.12);color:#16A34A}
+.node-pill.off{background:rgba(148,163,184,.14);color:#64748B}
+.node-row-meta{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.node-meta-item{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--t2);background:var(--bg3);border:1px solid transparent;padding:4px 9px;border-radius:8px;white-space:nowrap}
+.node-meta-item i{font-size:13px;color:var(--t3)}
+.node-row-actions{display:flex;gap:6px;justify-content:flex-end}
+.node-icon-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--card-b);background:transparent;color:var(--t2);display:grid;place-items:center;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+.node-icon-btn:hover{background:var(--bg3);color:var(--t1)}
+.node-icon-btn.danger:hover{background:rgba(239,68,68,.1);color:#DC2626;border-color:transparent}
+@media(max-width:720px){
+  .node-row{grid-template-columns:1fr;gap:10px}
+  .node-row-actions{justify-content:flex-start}
+}
 .lmodal-section-title{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--t2);margin:4px 0 10px}
 .lmodal-node-card{border:1px solid var(--card-b);border-radius:12px;padding:12px;margin-bottom:10px;background:var(--bg3)}
 .lmodal-node-card.is-on{border-color:rgba(37,99,235,.35);background:var(--accent-d)}
