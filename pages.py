@@ -5,97 +5,23 @@
 LOGIN_HTML = r"""<!DOCTYPE html>
 <html lang="fa" dir="rtl" class="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="color-scheme" content="dark light">
-<title>ورود · OXNET Console</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
-<script>(function(){try{var t=localStorage.getItem('ox-theme')||localStorage.getItem('oxnet-theme');if(t==='light')document.documentElement.classList.remove('dark');else document.documentElement.classList.add('dark');}catch(e){document.documentElement.classList.add('dark');}})();</script>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark light">
+<title>ورود · OXNET Console v4.0.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script>(function(){try{var t=localStorage.getItem('ox-theme')||localStorage.getItem('oxnet-theme');document.documentElement.classList.toggle('dark',t!=='light')}catch(e){document.documentElement.classList.add('dark')}})();</script>
 <style>
-:root{--bg:#fafafa;--surface:#fff;--raised:#f4f4f5;--line:#e4e4e7;--text:#18181b;--muted:#71717a;--faint:#a1a1aa;--inverse:#fafafa;--inverse-bg:#18181b;--green:#059669;--shadow:0 1px 2px rgba(0,0,0,.04)}
-html.dark{--bg:#09090b;--surface:#18181b;--raised:#27272a;--line:rgba(63,63,70,.8);--text:#fafafa;--muted:#a1a1aa;--faint:#71717a;--inverse:#18181b;--inverse-bg:#fafafa;--green:#34d399;--shadow:0 1px 2px rgba(0,0,0,.25)}
-*{box-sizing:border-box}html,body{height:100%;margin:0}
-body{min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--bg);color:var(--text);font-family:Vazirmatn,system-ui,sans-serif;-webkit-font-smoothing:antialiased;font-size:14px}
-.card{width:min(100%,410px);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:26px;box-shadow:var(--shadow)}
-.brand{text-align:center;margin-bottom:22px}
-.logo{width:44px;height:44px;margin:auto;border-radius:9px;background:var(--inverse-bg);color:var(--inverse);display:grid;place-items:center;font-weight:800;font-size:14px;letter-spacing:-.04em}
-.brand h1{font-size:17px;margin:12px 0 3px;font-weight:700}
-.brand p{font-size:10px;color:var(--muted);margin:0}
-.field{margin-top:12px}
-.field label{display:block;color:var(--muted);font-size:10px;font-weight:600;margin-bottom:7px}
-.pw-wrap{position:relative}
-.input{width:100%;height:42px;border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:8px;padding:0 12px 0 40px;font:400 12px Vazirmatn;outline:none}
-.input:focus{border-color:#a1a1aa;box-shadow:0 0 0 3px rgba(113,113,122,.12)}
-.pw-wrap button{position:absolute;left:5px;top:5px;width:30px;height:30px;border:0;background:transparent;color:var(--muted);cursor:pointer;border-radius:6px}
-.pw-wrap button:hover{color:var(--text);background:var(--raised)}
-.btn{width:100%;height:42px;margin-top:16px;border:1px solid var(--inverse-bg);border-radius:8px;background:var(--inverse-bg);color:var(--inverse);font:600 12px Vazirmatn;display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer}
-.btn:hover{opacity:.92}
-.btn:disabled{opacity:.55;cursor:wait}
-.err{display:none;margin-top:12px;padding:10px 12px;border-radius:8px;background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.25);color:#f87171;font-size:11px;align-items:center;gap:8px}
-.err.show{display:flex}
-.tls{border-top:1px solid var(--line);margin-top:20px;padding-top:15px;display:flex;justify-content:center;gap:6px;color:var(--faint);font-size:10px}
-.tls i{color:var(--green)}
-.theme-btn{position:fixed;top:16px;left:16px;width:38px;height:38px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--muted);display:grid;place-items:center;cursor:pointer}
-.theme-btn:hover{color:var(--text)}
-@keyframes spin{to{transform:rotate(360deg)}}
-</style>
-</head>
+:root{--bg:#fafafa;--surface:#fff;--soft:#f4f4f5;--line:#e4e4e7;--line2:#d4d4d8;--text:#18181b;--muted:#71717a;--faint:#a1a1aa;--inverse:#fafafa;--inverse-bg:#18181b;--green:#047857;--green-bg:#ecfdf5;--red:#dc2626;--red-bg:#fef2f2}
+html.dark{--bg:#09090b;--surface:#18181b;--soft:#27272a;--line:rgba(63,63,70,.85);--line2:#52525b;--text:#fafafa;--muted:#a1a1aa;--faint:#71717a;--inverse:#18181b;--inverse-bg:#fafafa;--green:#34d399;--green-bg:rgba(6,78,59,.32);--red:#f87171;--red-bg:rgba(127,29,29,.25)}
+*{box-sizing:border-box}html,body{min-height:100%;margin:0}body{min-height:100vh;background:var(--bg);color:var(--text);font:14px/1.6 Vazirmatn,system-ui,sans-serif;display:grid;place-items:center;padding:24px;-webkit-font-smoothing:antialiased}.mono,input[dir=ltr]{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.theme{position:fixed;top:20px;left:20px;width:42px;height:42px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--muted);display:grid;place-items:center;cursor:pointer}.theme:hover{color:var(--text);background:var(--soft)}.wrap{width:min(100%,430px)}.context{text-align:center;margin-bottom:20px}.mark{width:48px;height:48px;border-radius:11px;margin:0 auto 13px;display:grid;place-items:center;background:var(--inverse-bg);color:var(--inverse);font:800 14px/1 ui-monospace,monospace;letter-spacing:-.05em}.context h1{font-size:19px;line-height:1.4;margin:0;font-weight:700;letter-spacing:-.02em}.context p{font-size:11px;color:var(--muted);margin:5px 0 0}.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:24px;box-shadow:0 1px 2px rgba(0,0,0,.04)}.field{margin-bottom:14px}.field label{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:7px}.field small{font-weight:400;color:var(--faint)}.input-wrap{position:relative}.input{width:100%;height:44px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);outline:none;padding:0 12px;font-size:12px}.input.icon{padding-left:42px}.input:focus{border-color:var(--line2);box-shadow:0 0 0 3px color-mix(in srgb,var(--muted) 12%,transparent)}.eye{position:absolute;left:5px;top:5px;width:34px;height:34px;border:0;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}.eye:hover{background:var(--soft);color:var(--text)}.otp{letter-spacing:.34em;text-align:center;font-size:14px}.submit{width:100%;height:44px;border:1px solid var(--inverse-bg);border-radius:8px;background:var(--inverse-bg);color:var(--inverse);font:600 12px Vazirmatn;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;margin-top:18px}.submit:hover{opacity:.9}.submit:disabled{opacity:.55;cursor:wait}.error{display:none;align-items:center;gap:8px;margin-bottom:14px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--red) 28%,transparent);border-radius:8px;background:var(--red-bg);color:var(--red);font-size:11px}.error.show{display:flex}.security{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);margin-top:20px;padding-top:15px;font-size:10px;color:var(--faint)}.secure{display:flex;align-items:center;gap:6px;color:var(--green)}.version{font-family:ui-monospace,monospace}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:480px){body{padding:18px}.card{padding:20px}.theme{top:14px;left:14px}}
+</style></head>
 <body>
-<button type="button" class="theme-btn" id="theme-btn" aria-label="تم"><i class="ti ti-sun" id="theme-icon"></i></button>
-<article class="card">
-  <div class="brand">
-    <div class="logo">OX</div>
-    <h1>ورود به OXNET Console</h1>
-    <p>احراز هویت امن لبه شبکه · v4.4.0</p>
-  </div>
-  <div class="err" id="err"><i class="ti ti-alert-circle"></i><span id="err-text"></span></div>
-  <form id="form">
-    <div class="field">
-      <label for="pw">کلمه عبور</label>
-      <div class="pw-wrap">
-        <input class="input mono" id="pw" type="password" dir="ltr" required autofocus autocomplete="current-password" placeholder="••••••••">
-        <button type="button" id="toggle-pw" aria-label="نمایش رمز"><i class="ti ti-eye"></i></button>
-      </div>
-    </div>
-    <button class="btn" type="submit" id="btn"><i class="ti ti-login-2"></i> تایید و ورود به کنسول</button>
-  </form>
-  <div class="tls"><i class="ti ti-shield-check"></i><span>اتصال رمزنگاری‌شده · TLS · Path Guard</span></div>
-</article>
-<script>
-(function(){
-  const icon=document.getElementById('theme-icon');
-  function sync(){icon.className=document.documentElement.classList.contains('dark')?'ti ti-sun':'ti ti-moon'}
-  sync();
-  document.getElementById('theme-btn').onclick=()=>{
-    document.documentElement.classList.toggle('dark');
-    const dark=document.documentElement.classList.contains('dark');
-    try{localStorage.setItem('ox-theme',dark?'dark':'light');localStorage.setItem('oxnet-theme',dark?'dark':'light')}catch(e){}
-    sync();
-  };
-  document.getElementById('toggle-pw').onclick=()=>{
-    const p=document.getElementById('pw');
-    p.type=p.type==='password'?'text':'password';
-  };
-  document.getElementById('form').addEventListener('submit',async e=>{
-    e.preventDefault();
-    const btn=document.getElementById('btn'),err=document.getElementById('err'),et=document.getElementById('err-text');
-    err.classList.remove('show');btn.disabled=true;
-    btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> در حال بررسی...';
-    try{
-      const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('pw').value})});
-      if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.detail||'رمز نادرست');}
-      location.href=(window.OXNET_DASH||'/dashboard');
-    }catch(ex){
-      et.textContent=ex.message||'خطا';err.classList.add('show');
-      btn.disabled=false;btn.innerHTML='<i class="ti ti-login-2"></i> تایید و ورود به کنسول';
-    }
-  });
-})();
-</script>
-</body>
-</html>
+<button class="theme" id="theme-btn" type="button" aria-label="تغییر تم"><i id="theme-icon" class="ti ti-sun"></i></button>
+<main class="wrap"><div class="context"><div class="mark">OX</div><h1>ورود به OXNET Console</h1><p>مرکز مدیریت امن زیرساخت و مسیرهای شبکه</p></div><section class="card" aria-label="فرم ورود"><div class="error" id="err"><i class="ti ti-alert-circle"></i><span id="err-text"></span></div><form id="form">
+<div class="field"><label for="username">نام کاربری <small>حساب مدیر</small></label><input class="input" id="username" type="text" dir="ltr" value="admin" autocomplete="username" required></div>
+<div class="field"><label for="pw">کلمه عبور</label><div class="input-wrap"><input class="input icon" id="pw" type="password" dir="ltr" autocomplete="current-password" required autofocus placeholder="••••••••"><button class="eye" type="button" id="toggle-pw" aria-label="نمایش رمز"><i class="ti ti-eye"></i></button></div></div>
+<div class="field"><label for="otp">کد ورود دو مرحله‌ای <small>اختیاری</small></label><input class="input otp" id="otp" type="text" dir="ltr" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000"></div>
+<button class="submit" id="btn" type="submit"><i class="ti ti-login-2"></i> ورود امن به کنسول</button></form><div class="security"><span class="secure"><i class="ti ti-shield-check"></i> اتصال رمزنگاری‌شده · TLS 1.3</span><span class="version">v4.0.0</span></div></section></main>
+<script>(function(){const root=document.documentElement,icon=document.getElementById('theme-icon');function sync(){icon.className=root.classList.contains('dark')?'ti ti-sun':'ti ti-moon'}sync();document.getElementById('theme-btn').onclick=()=>{root.classList.toggle('dark');const d=root.classList.contains('dark');try{localStorage.setItem('ox-theme',d?'dark':'light');localStorage.setItem('oxnet-theme',d?'dark':'light')}catch(e){}sync()};document.getElementById('toggle-pw').onclick=()=>{const p=document.getElementById('pw');p.type=p.type==='password'?'text':'password'};document.getElementById('form').addEventListener('submit',async e=>{e.preventDefault();const btn=document.getElementById('btn'),err=document.getElementById('err'),et=document.getElementById('err-text');err.classList.remove('show');btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> در حال احراز هویت...';try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('pw').value,username:document.getElementById('username').value,otp:document.getElementById('otp').value})});if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.detail||'اطلاعات ورود نادرست است')}location.href=(window.OXNET_DASH||'/dashboard')}catch(ex){et.textContent=ex.message||'خطای ورود';err.classList.add('show');btn.disabled=false;btn.innerHTML='<i class="ti ti-login-2"></i> ورود امن به کنسول'}})})();</script></body></html>
 """
 
 
@@ -2252,6 +2178,21 @@ textarea{height:auto!important;min-height:78px!important}
 @media(max-width:900px){.main{margin-right:0!important;padding:76px 16px 40px!important}.sidebar{width:min(86vw,256px)!important}}
 </style>
 
+
+<style id="oxnet-ui-v400-release">
+/* Final UI release: neutral Zinc/Slate, flat surfaces, no neon/glow/gradients. */
+html,html[data-theme="light"]{--ox-bg:#fafafa;--ox-side:#fff;--ox-card:#fff;--ox-soft:#f4f4f5;--ox-line:#e4e4e7;--ox-line-strong:#d4d4d8;--ox-text:#18181b;--ox-muted:#71717a;--ox-faint:#a1a1aa;--ox-inverse:#fafafa;--ox-inverse-bg:#18181b;--ox-green:#047857;--ox-green-bg:#ecfdf5;--ox-amber:#b45309;--ox-amber-bg:#fffbeb;--ox-red:#dc2626;--ox-red-bg:#fef2f2}
+html.dark,html[data-theme="dark"]{--ox-bg:#09090b;--ox-side:#09090b;--ox-card:#18181b;--ox-soft:#27272a;--ox-line:rgba(63,63,70,.82);--ox-line-strong:#52525b;--ox-text:#fafafa;--ox-muted:#a1a1aa;--ox-faint:#71717a;--ox-inverse:#18181b;--ox-inverse-bg:#fafafa;--ox-green:#34d399;--ox-green-bg:rgba(6,78,59,.30);--ox-amber:#fbbf24;--ox-amber-bg:rgba(120,53,15,.28);--ox-red:#f87171;--ox-red-bg:rgba(127,29,29,.24)}
+html,body{background:var(--ox-bg)!important;color:var(--ox-text)!important;font-family:Vazirmatn,system-ui,sans-serif!important;background-image:none!important}code,.mono,[dir="ltr"],.vl-code,.sub-url,.cfg-uuid-mini,.nx-endpoint{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace!important}.sidebar{width:256px!important;background:var(--ox-side)!important;border-left:1px solid var(--ox-line)!important;box-shadow:none!important}.logo{padding:18px 16px!important;border-bottom:1px solid var(--ox-line)!important;background:transparent!important;border-radius:0!important}.brand-mark,.brand-mark.small{width:36px!important;height:36px!important;background:var(--ox-inverse-bg)!important;color:var(--ox-inverse)!important;border-radius:9px!important;box-shadow:none!important}.logo-name{font-size:13px!important;color:var(--ox-text)!important}.logo-sub{font-size:10px!important;color:var(--ox-faint)!important}.nav-wrap{padding:8px 4px 12px!important}.nav-sec{padding:16px 16px 6px!important;color:var(--ox-faint)!important;font-size:10px!important}.nav-it{height:38px!important;min-height:38px!important;margin:2px 8px!important;padding:0 10px!important;border:0!important;border-radius:8px!important;background:transparent!important;color:var(--ox-muted)!important;font-size:12px!important;font-weight:500!important;box-shadow:none!important}.nav-it:hover{background:var(--ox-soft)!important;color:var(--ox-text)!important}.nav-it.on{background:var(--ox-soft)!important;color:var(--ox-text)!important}.nav-it.on:after{content:""!important;position:absolute!important;right:0!important;top:10px!important;width:2px!important;height:18px!important;background:var(--ox-text)!important;border-radius:2px!important}.nav-badge{margin-right:auto!important;background:transparent!important;border:1px solid var(--ox-line)!important;border-radius:5px!important;color:var(--ox-muted)!important;font:10px ui-monospace,monospace!important}.sb-foot{padding:12px!important;border-top:1px solid var(--ox-line)!important}.sb-profile{display:flex;align-items:center;gap:9px;padding:4px 4px 10px}.sb-avatar{width:32px;height:32px;border-radius:50%;border:1px solid var(--ox-line);background:var(--ox-soft);display:grid;place-items:center;font:700 10px ui-monospace,monospace}.sb-profile-copy{display:flex;flex-direction:column}.sb-profile-copy b{font-size:11px}.sb-profile-copy span{font-size:10px;color:var(--ox-faint)}.sb-foot-actions{display:grid;grid-template-columns:1fr auto;gap:6px}.sb-foot .theme-btn,.sb-foot .logout-btn{margin:0!important;height:36px!important;border:1px solid transparent!important;border-radius:8px!important;background:transparent!important;color:var(--ox-muted)!important;font-size:11px!important}.sb-foot .theme-btn:hover{background:var(--ox-soft)!important;color:var(--ox-text)!important}.sb-foot .logout-btn:hover{background:var(--ox-red-bg)!important;color:var(--ox-red)!important}.main{margin-right:256px!important;padding:26px 28px 52px!important;max-width:1480px!important}.topbar,.ov-topbar{padding:18px 20px!important;margin-bottom:16px!important;background:var(--ox-card)!important;border:1px solid var(--ox-line)!important;border-radius:10px!important;box-shadow:none!important;backdrop-filter:none!important}.ov-greeting,.tb-title{font-size:18px!important;font-weight:700!important;color:var(--ox-text)!important}.ov-sub,.tb-sub{font-size:11px!important;color:var(--ox-muted)!important}.qa-grid{grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:8px!important;margin-bottom:14px!important}.qa-item{min-height:68px!important;padding:10px!important;background:var(--ox-card)!important;border:1px solid var(--ox-line)!important;border-radius:9px!important;box-shadow:none!important;color:var(--ox-muted)!important}.qa-item:hover{border-color:var(--ox-line-strong)!important;color:var(--ox-text)!important;transform:none!important}.qa-item i{width:auto!important;height:auto!important;background:transparent!important;color:inherit!important;font-size:17px!important}.stat-grid{gap:10px!important;margin-bottom:14px!important}.stat-card-v2{padding:15px!important;min-height:116px!important;background:var(--ox-card)!important;border:1px solid var(--ox-line)!important;border-radius:10px!important;box-shadow:none!important}.stat-v2-label{color:var(--ox-muted)!important}.stat-v2-ic{color:var(--ox-muted)!important;background:transparent!important}.stat-v2-num{font-size:25px!important;color:var(--ox-text)!important}.stat-v2-hint{color:var(--ox-faint)!important}.proto-strip{gap:6px!important;margin-bottom:14px!important}.proto-chip-v2{background:transparent!important;border:1px solid var(--ox-line)!important;color:var(--ox-muted)!important;border-radius:6px!important;box-shadow:none!important}.vless-box,.card,.cfg-card,.sub-card,.dash-chart-card,.traf-chart-card,.traf-main-stat,.traf-mini,.conn-card-v2,.multi-group-card,.srv-panel,.pw-panel,.cluster-card,.nx-card,.nx-metric,.info-item{background:var(--ox-card)!important;background-image:none!important;border:1px solid var(--ox-line)!important;border-radius:10px!important;box-shadow:none!important;transform:none!important}.card:hover,.cfg-card:hover,.sub-card:hover,.conn-card-v2:hover,.nx-card:hover{border-color:var(--ox-line-strong)!important;box-shadow:none!important;transform:none!important}.vless-box{padding:15px!important;margin:0 0 14px!important}.vl-code,.nx-endpoint,.sub-card-url-row,.sub-box{background:var(--ox-bg)!important;border:1px solid var(--ox-line)!important;border-radius:7px!important;color:var(--ox-muted)!important}.dash-chart-grid{gap:12px!important;margin:12px 0!important}.dash-chart-card{padding:16px!important}.dash-chart-card .ch{height:220px!important}.dash-chart-card .ch-sm{height:200px!important}.g2,.g3{gap:12px!important}.card{padding:16px!important}.card-title,.dash-card-title{font-size:13px!important;color:var(--ox-text)!important}.card-title i,.dash-card-title i{color:var(--ox-muted)!important}.btn,.btn-p,.btn-o,.btn-g,.btn-d,.btn-amber,.btn-pur,.btn-sm,.nx-btn,.cm-btn-submit,.modal-v2-btn-submit,.cp-submit-btn,.pw-submit{height:38px!important;min-height:38px!important;padding:0 13px!important;border-radius:8px!important;font-size:11px!important;font-weight:600!important;background-image:none!important;box-shadow:none!important;transform:none!important}.btn-p,.cm-btn-submit,.modal-v2-btn-submit,.cp-submit-btn,.pw-submit{background:var(--ox-inverse-bg)!important;color:var(--ox-inverse)!important;border:1px solid var(--ox-inverse-bg)!important}.btn-o,.btn-g,.nx-btn{background:var(--ox-card)!important;color:var(--ox-text)!important;border:1px solid var(--ox-line)!important}.btn-amber{background:var(--ox-amber-bg)!important;color:var(--ox-amber)!important;border:1px solid transparent!important}.btn-d{background:var(--ox-red-bg)!important;color:var(--ox-red)!important;border:1px solid transparent!important}.fi,.fs,.cm-input,.modal-v2-input,.pw-input,input[type="text"],input[type="password"],input[type="number"],select,textarea{min-height:40px!important;background:var(--ox-bg)!important;color:var(--ox-text)!important;border:1px solid var(--ox-line)!important;border-radius:8px!important;box-shadow:none!important;font-size:12px!important}.fi:focus,input:focus,select:focus,textarea:focus{border-color:var(--ox-line-strong)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--ox-muted) 12%,transparent)!important}.badge,.nx-status,.node-pill{background:var(--ox-soft)!important;color:var(--ox-muted)!important;border:1px solid var(--ox-line)!important;border-radius:6px!important}.badge.bg-green,.nx-status.on,.node-pill.on{background:var(--ox-green-bg)!important;color:var(--ox-green)!important}.bg-amber{background:var(--ox-amber-bg)!important;color:var(--ox-amber)!important}.bg-red{background:var(--ox-red-bg)!important;color:var(--ox-red)!important}.srv-hero-icon,.srv-tile-icon,.sub-card-icon,.modal-v2-icon,.lmodal-icon,.conn-avatar{background:var(--ox-soft)!important;color:var(--ox-muted)!important;box-shadow:none!important}.modal-v2,.cm-modal{background:var(--ox-card)!important;border:1px solid var(--ox-line-strong)!important;border-radius:12px!important;box-shadow:0 18px 48px rgba(0,0,0,.22)!important}.modal-v2-head,.lmodal-head,.sub-card-top{background:var(--ox-soft)!important;background-image:none!important}.modal-bg,.modal-overlay,.lmodal-bg{background:rgba(9,9,11,.68)!important;backdrop-filter:blur(2px)!important}.cm-opt{background:var(--ox-card)!important;border:1px solid var(--ox-line)!important;border-radius:8px!important;box-shadow:none!important}.cm-opt.sel,.cm-opt.on,.cm-opt.selected{background:var(--ox-soft)!important;border-color:var(--ox-text)!important}.toast{background:var(--ox-inverse-bg)!important;color:var(--ox-inverse)!important;border:1px solid var(--ox-line-strong)!important;border-radius:8px!important;box-shadow:0 8px 24px rgba(0,0,0,.18)!important}.pulse{animation:none!important}.dg,.dot.dg{color:var(--ox-green)!important;background:var(--ox-green)!important}
+@media(max-width:1050px){.qa-grid{grid-template-columns:repeat(3,1fr)!important}.stat-grid{grid-template-columns:repeat(2,1fr)!important}}
+@media(max-width:900px){.sidebar{width:min(86vw,280px)!important}.main{margin-right:0!important;padding:72px 16px 40px!important}.mob-top{display:flex!important;background:var(--ox-side)!important;border-bottom:1px solid var(--ox-line)!important;box-shadow:none!important}.g2,.g3{grid-template-columns:1fr!important}}
+@media(max-width:520px){.main{padding-inline:12px!important}.topbar,.ov-topbar{padding:16px!important}.qa-grid,.stat-grid{grid-template-columns:repeat(2,1fr)!important}.dash-chart-card .ch{height:190px!important}.cfg-actions{width:100%!important;overflow-x:auto!important}.sb-foot-actions{grid-template-columns:1fr 1fr}.modal-v2{width:calc(100% - 20px)!important;max-height:94dvh!important}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+html .sidebar>.logo{background:var(--ox-side)!important;color:var(--ox-text)!important;border-radius:0!important}
+html .sidebar .brand-mark.small{display:grid!important;place-items:center!important;width:36px!important;min-width:36px!important;height:36px!important;background:var(--ox-inverse-bg)!important;color:var(--ox-inverse)!important}
+html .sidebar .brand-mark.small i{display:none!important}
+html .sidebar .brand-mark.small:before{content:"OX";font:800 10px ui-monospace,monospace;letter-spacing:-.04em}
+</style>
 </head>
 <body>
 <div class="toast" id="toast"></div>
@@ -2650,8 +2591,8 @@ textarea{height:auto!important;min-height:78px!important}
     <div class="nav-it" data-pg="settings"><i class="ti ti-settings"></i> تنظیمات</div>
   </div>
   <div class="sb-foot">
-    <button class="theme-btn" onclick="toggleTheme()"><i class="ti ti-moon" id="theme-icon"></i> <span id="theme-label">تم روشن</span></button>
-    <button class="logout-btn" id="logout-btn"><i class="ti ti-logout"></i> خروج</button>
+    <div class="sb-profile"><div class="sb-avatar">OX</div><div class="sb-profile-copy"><b>عصر بخیر؛ مدیر</b><span>خوش آمدید</span></div></div>
+    <div class="sb-foot-actions"><button class="theme-btn" onclick="toggleTheme()"><i class="ti ti-moon" id="theme-icon"></i> <span id="theme-label">تم روشن</span></button><button class="logout-btn" id="logout-btn"><i class="ti ti-logout"></i> خروج</button></div>
   </div>
 </aside>
 <main class="main">
@@ -3121,17 +3062,6 @@ textarea{height:auto!important;min-height:78px!important}
       <div class="cl" style="margin-top:10px"><i class="ti ti-server"></i><span>دامنه فعلی فعال: <b dir="ltr" id="panel-domain-active">—</b> · پیش‌فرض محیط: <b dir="ltr" id="panel-domain-default">—</b></span></div>
       <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-p btn-sm" onclick="savePanelDomain()"><i class="ti ti-device-floppy"></i> ذخیره دامنه اصلی</button>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:16px">
-      <div class="card-title"><i class="ti ti-shield-lock"></i> مسیر مخفی ورود</div>
-      <div class="cl" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><span>با تنظیم مسیر سفارشی، لاگین و داشبورد فقط از <b dir="ltr">/{path}/login</b> و <b dir="ltr">/{path}/dashboard</b> در دسترس‌اند و آدرس‌های ساده <b dir="ltr">/login</b> و <b dir="ltr">/dashboard</b> خطای ۴۰۴ می‌دهند. حداقل ۴ کاراکتر انگلیسی یا عدد.</span></div>
-      <div class="fg"><label>مسیر ورود</label><input class="fi" id="panel-login-path" dir="ltr" placeholder="lkjsoijefief" style="width:100%"></div>
-      <div class="cl" style="margin-top:10px"><i class="ti ti-link"></i><span>آدرس فعلی: <b dir="ltr" id="panel-login-url">/login</b></span></div>
-      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-p btn-sm" type="button" onclick="saveLoginPath()"><i class="ti ti-device-floppy"></i> ذخیره مسیر ورود</button>
-        <button class="btn btn-o btn-sm" type="button" onclick="clearLoginPath()"><i class="ti ti-refresh"></i> بازگشت به /login</button>
       </div>
     </div>
 
