@@ -839,8 +839,9 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
         mode = protocol.replace("trojan-xhttp-", "")
         if mode == "stream-one":
             mode = "stream-up"
+        # XHTTP باید مسیر بومی سرور باشد تا کلاینت به هندلر واقعی برسد
         params = {
-            "security": security, "type": "xhttp", "mode": mode, "host": tls_host,
+        "security": security, "type": "xhttp", "mode": mode, "host": tls_host,
             "path": clean_path, "fp": "chrome", "alpn": "h2,http/1.1",
         }
         if use_tls:
@@ -849,6 +850,7 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
         tag = remark if use_tls else f"{remark}-HTTP80"
         return f"trojan://{public_uuid}@{authority_host}:{int(port)}?{query}#{quote(tag)}"
     if protocol == "vless-ws":
+        # WebSocket: path ساده /token
         params = {
             "encryption": "none",
             "security": security,
@@ -860,19 +862,34 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
         }
         if use_tls:
             params["sni"] = tls_host
-    else:
-        mode = protocol.replace("xhttp-", "")
+    elif protocol.startswith("xhttp-") or "xhttp" in protocol:
+        mode = protocol.replace("xhttp-", "").replace("trojan-", "")
         if mode == "stream-one":
             mode = "stream-up"
+        if mode not in ("packet-up", "stream-up", "stream-one"):
+            mode = "stream-up"
         params = {
-            "encryption": "none",
-            "security": security,
+        "encryption": "none",
+        "security": security,
             "type": "xhttp",
             "mode": mode,
             "host": tls_host,
             "path": clean_path,
             "fp": "chrome",
             "alpn": "h2,http/1.1",
+        }
+        if use_tls:
+            params["sni"] = tls_host
+    else:
+        # سایر پروتکل‌های ناشناخته: fallback به WS path ساده
+        params = {
+            "encryption": "none",
+            "security": security,
+            "type": "ws",
+            "host": tls_host,
+            "path": clean_path,
+            "fp": "chrome",
+            "alpn": "http/1.1",
         }
         if use_tls:
             params["sni"] = tls_host
@@ -4276,18 +4293,55 @@ except Exception as _xhttp_err:
 
 # ── Plain path XHTTP: only if first segment is a known config path token ──────
 class PlainPathXhttpMiddleware:
-    """Rewrite /{token}/... → /xhttp-siz10/... فقط برای path کانفیگ‌های XHTTP (O(1))."""
+    """
+    path ساده مثل /sjdoipod را به هندلر داخلی XHTTP می‌فرستد.
+    در لینک کلاینت فقط /token دیده می‌شود — بدون xhttp-siz10 / stream-up / packet-up.
+    """
 
-    _SKIP_PREFIX = frozenset({
+    _SKIP = frozenset({
         "api", "login", "dashboard", "health", "stats", "sub", "sub-all", "sub-group",
         "ws", "ss", "trojan-ws", "vless-tcp", "xhttp-siz10", "static", "assets", "docs",
         "openapi.json", "p", "proxy", "cf-sub", "domain-sub", "test-ws", "support",
         "cluster", "settings", "customers", "cloudflare", "connections", "traffic",
-        "favicon.ico", "robots.txt",
+        "favicon.ico", "robots.txt", "admin", "metrics",
     })
 
     def __init__(self, app):
         self.app = app
+
+    def _lookup(self, token: str):
+        if not token or token in self._SKIP:
+            return None, None, None
+        uid = PATH_INDEX.get(token)
+        if not uid:
+            # fallback اسکن (اگر ایندکس عقب بود)
+            if token in LINKS:
+                uid = token
+            else:
+                for u, link in LINKS.items():
+                    if str(link.get("path") or "").strip().strip("/") == token:
+                        uid = u
+                        break
+        if not uid:
+            return None, None, None
+        link = LINKS.get(uid) or {}
+        proto = str(link.get("protocol") or "")
+        if "xhttp" not in proto:
+            return None, None, None
+        mode = "packet-up" if "packet" in proto else "stream-up"
+        return uid, link, mode
+
+    def _qs(self, scope):
+        from urllib.parse import parse_qs
+        raw = scope.get("query_string") or b""
+        try:
+            q = parse_qs(raw.decode("utf-8", errors="ignore"))
+        except Exception:
+            q = {}
+        def one(k):
+            v = q.get(k) or q.get(k.lower()) or []
+            return v[0] if v else ""
+        return one
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -4297,32 +4351,48 @@ class PlainPathXhttpMiddleware:
         if (not path) or path == "/" or path.startswith("/api") or path.startswith("/xhttp-siz10"):
             await self.app(scope, receive, send)
             return
-        parts = path.strip("/").split("/")
-        if len(parts) < 2:
+        parts = [p for p in path.split("/") if p]
+        if not parts:
             await self.app(scope, receive, send)
             return
         token = parts[0]
-        if token in self._SKIP_PREFIX:
-            await self.app(scope, receive, send)
-            return
-        uid = PATH_INDEX.get(token)
+        uid, link, mode = self._lookup(token)
         if not uid:
             await self.app(scope, receive, send)
             return
-        link = LINKS.get(uid) or {}
-        proto = str(link.get("protocol") or "")
-        if "xhttp" not in proto:
-            await self.app(scope, receive, send)
-            return
-        mode = "packet-up" if "packet" in proto else "stream-up"
+
         method = (scope.get("method") or "GET").upper()
+        one = self._qs(scope)
+        # session از path یا query یا header
+        session_id = None
+        seq = None
         if len(parts) >= 3 and str(parts[-1]).isdigit():
             session_id = parts[1]
             seq = parts[-1]
-            new_path = f"/xhttp-siz10/packet-up/{uid}/{session_id}/{seq}"
-        else:
+        elif len(parts) >= 2:
             session_id = parts[1]
+            # اگر segment آخر رقم است و mode packet
+            if len(parts) >= 3:
+                seq = parts[2]
+        else:
+            # فقط /token — session از query/header
+            session_id = one("sid") or one("session") or one("s") or "0"
+            seq = one("seq") or None
+
+        if not session_id:
+            session_id = "0"
+
+        if seq is not None and str(seq).isdigit():
+            new_path = f"/xhttp-siz10/packet-up/{uid}/{session_id}/{seq}"
+        elif method == "GET":
             new_path = f"/xhttp-siz10/{mode}/{uid}/{session_id}"
+        else:
+            # POST uplink
+            if mode == "packet-up" and seq is not None:
+                new_path = f"/xhttp-siz10/packet-up/{uid}/{session_id}/{seq}"
+            else:
+                new_path = f"/xhttp-siz10/{mode}/{uid}/{session_id}"
+
         scope = dict(scope)
         scope["path"] = new_path
         scope["raw_path"] = new_path.encode("utf-8")

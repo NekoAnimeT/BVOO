@@ -1,2 +1,2 @@
-version=4.6.3
-description=Speed/ping fix: PATH_INDEX, fast middleware, ping 3s, TCP_NODELAY
+version=4.6.5
+description=XHTTP plain path only /token — no xhttp-siz10/stream-up/packet-up in client URI; robust server rewrite
