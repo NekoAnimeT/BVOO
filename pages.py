@@ -2355,7 +2355,7 @@ body{display:block!important;place-items:unset!important}
         </div>
         <div class="cm-field"><label>Path اختصاصی</label>
           <div class="path-field"><input class="cm-input" id="nl-path" dir="ltr" placeholder="مسیر کوتاه و دلخواه"><button type="button" class="path-random-btn" onclick="generateRandomPath()"><i class="ti ti-dice-5"></i> ساخت تصادفی</button></div>
-          <div class="cm-note" style="margin-top:8px"><i class="ti ti-info-circle"></i> اگر بنویسید PlanAsli، مسیر WebSocket به شکل /ws/PlanAsli ساخته می‌شود.</div>
+          <div class="cm-note" style="margin-top:8px"><i class="ti ti-info-circle"></i> اگر بنویسید PlanAsli، مسیر فقط به‌صورت /PlanAsli (رندوم ساده) ساخته می‌شود.</div>
         </div>
         <div class="cm-row2">
           <div class="cm-field"><label>گروه ساب</label>
@@ -2514,7 +2514,7 @@ body{display:block!important;place-items:unset!important}
             <label>حالت Path</label>
             <select class="cm-input" id="nl-tcp-path-mode">
               <option value="root" selected>ساده — / (پیشنهادی)</option>
-              <option value="panel">پنل — /ws/{path}</option>
+              <option value="panel">پنل — /{path}</option>
             </select>
           </div>
         </div>
@@ -3363,7 +3363,7 @@ body{display:block!important;place-items:unset!important}
       <div class="fg" style="margin-top:10px"><label>حالت Path</label>
         <select class="fi" id="tcp-path-mode" style="width:100%">
           <option value="root" selected>ساده — / (پیشنهادی · مثل نمونه کارکننده)</option>
-          <option value="panel">پنل — /ws/{path}</option>
+          <option value="panel">پنل — /{path}</option>
         </select>
       </div>
       <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">

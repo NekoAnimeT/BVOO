@@ -728,7 +728,7 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
         path_mode = str(link_obj.get("tcp_path_mode") or tcp.get("path_mode") or "root").strip().lower()
         # Default root=/ matches working Railway samples (UUID is in VLESS header)
         if path_mode == "panel":
-            wspath = f"/ws/{public_path}"
+            wspath = f"/{str(public_path).lstrip('/')}"
         else:
             wspath = "/"
         params = {
@@ -772,13 +772,16 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
         tag = remark or "OXNET-Reality"
         return f"vless://{public_uuid}@{_uri_authority_host(r_host)}:{r_port}?{query}#{quote(tag)}"
 
+    # path همیشه فقط /{token} تصادفی — بدون /ws /xhttp-siz10 /trojan-ws
+    clean_path = f"/{str(public_path).lstrip('/')}"
+
     if protocol == "shadowsocks-tls":
         import base64
         user = base64.urlsafe_b64encode(f"chacha20-ietf-poly1305:{public_uuid}".encode()).decode().rstrip("=")
         if use_tls:
-            plugin = quote(f"v2ray-plugin;tls;mode=websocket;host={tls_host};path=/ss/{public_path}", safe="")
+            plugin = quote(f"v2ray-plugin;tls;mode=websocket;host={tls_host};path={clean_path}", safe="")
         else:
-            plugin = quote(f"v2ray-plugin;mode=websocket;host={tls_host};path=/ss/{public_path}", safe="")
+            plugin = quote(f"v2ray-plugin;mode=websocket;host={tls_host};path={clean_path}", safe="")
         tag = remark or "OXNET-Shadowsocks"
         if not use_tls:
             tag = f"{tag}-HTTP80"
@@ -797,7 +800,7 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
     if protocol == "trojan-ws":
         params = {
             "security": security, "type": "ws", "host": tls_host,
-            "path": "/trojan-ws", "fp": "chrome", "alpn": "http/1.1",
+            "path": clean_path, "fp": "chrome", "alpn": "http/1.1",
         }
         if use_tls:
             params["sni"] = tls_host
@@ -808,10 +811,9 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
         mode = protocol.replace("trojan-xhttp-", "")
         if mode == "stream-one":
             mode = "stream-up"
-        path = f"/xhttp-siz10/{mode}/{public_path}"
         params = {
             "security": security, "type": "xhttp", "mode": mode, "host": tls_host,
-            "path": path, "fp": "chrome", "alpn": "h2,http/1.1",
+            "path": clean_path, "fp": "chrome", "alpn": "h2,http/1.1",
         }
         if use_tls:
             params["sni"] = tls_host
@@ -819,13 +821,12 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
         tag = remark if use_tls else f"{remark}-HTTP80"
         return f"trojan://{public_uuid}@{authority_host}:{int(port)}?{query}#{quote(tag)}"
     if protocol == "vless-ws":
-        path = f"/ws/{public_path}"
         params = {
             "encryption": "none",
             "security": security,
             "type": "ws",
             "host": tls_host,
-            "path": path,
+            "path": clean_path,
             "fp": "chrome",
             "alpn": "http/1.1",
         }
@@ -835,14 +836,13 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
         mode = protocol.replace("xhttp-", "")
         if mode == "stream-one":
             mode = "stream-up"
-        path = f"/xhttp-siz10/{mode}/{public_path}"
         params = {
             "encryption": "none",
             "security": security,
             "type": "xhttp",
             "mode": mode,
             "host": tls_host,
-            "path": path,
+            "path": clean_path,
             "fp": "chrome",
             "alpn": "h2,http/1.1",
         }
@@ -3491,6 +3491,44 @@ async def ws_trojan(ws: WebSocket):
 async def ws_shadowsocks(ws: WebSocket, uuid: str):
     from shadowsocks_ws import shadowsocks_ws_tunnel
     await shadowsocks_ws_tunnel(ws, uuid)
+
+
+# مسیر ساده /{token} — فقط path رندوم در لینک‌ها
+_RESERVED_WS_PATHS = {
+    "api", "login", "dashboard", "health", "stats", "sub", "sub-all", "sub-group",
+    "ws", "ss", "trojan-ws", "vless-tcp", "xhttp-siz10", "static", "assets", "docs", "openapi.json",
+}
+
+@app.websocket("/{token}")
+async def ws_by_custom_path(ws: WebSocket, token: str):
+    """WebSocket روی path ساده مثل /kdkdjsjdj بر اساس path ذخیره‌شده کانفیگ."""
+    tok = (token or "").strip().strip("/")
+    if not tok or tok in _RESERVED_WS_PATHS or "/" in tok:
+        await ws.close(code=1008)
+        return
+    uid = await resolve_link_id(tok)
+    if not uid:
+        # شاید خود uuid باشد
+        uid = tok if tok in LINKS else None
+    if not uid:
+        await ws.close(code=1008, reason="unknown path")
+        return
+    link = LINKS.get(uid) or {}
+    proto = str(link.get("protocol") or "vless-ws")
+    if proto == "trojan-ws":
+        from trojan import trojan_ws_tunnel
+        # trojan tunnel ممکن است path ثابت بخواهد؛ uuid را پاس بده
+        try:
+            await trojan_ws_tunnel(ws, uid)
+        except TypeError:
+            await trojan_ws_tunnel(ws)
+        return
+    if proto == "shadowsocks-tls":
+        from shadowsocks_ws import shadowsocks_ws_tunnel
+        await shadowsocks_ws_tunnel(ws, uid)
+        return
+    from relay_vless import websocket_tunnel
+    await websocket_tunnel(ws, uid)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

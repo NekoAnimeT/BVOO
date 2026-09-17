@@ -1,2 +1,2 @@
-version=4.6.0
-description=Pro UI: config filters/bulk/drawer, cmd palette, skeleton, toast undo, bg node ping, design tokens
+version=4.6.1
+description=Config share path is plain /random only (no /ws /xhttp-siz10 /trojan-ws prefixes)
