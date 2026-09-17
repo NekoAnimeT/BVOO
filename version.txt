@@ -1,2 +1,2 @@
-version=4.4.2
-description=Console zinc FINAL CSS correctly in dashboard head last
+version=4.5.0
+description=UI/UX batch: equal cards, lmodal cards, QR modal, scroll, fast ping, connections, remark UI, traffic strip

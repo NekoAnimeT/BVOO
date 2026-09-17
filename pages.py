@@ -2193,6 +2193,53 @@ html .sidebar .brand-mark.small{display:grid!important;place-items:center!import
 html .sidebar .brand-mark.small i{display:none!important}
 html .sidebar .brand-mark.small:before{content:"OX";font:800 10px ui-monospace,monospace;letter-spacing:-.04em}
 </style>
+
+<style id="fix-lmodal-cards">
+.lmodal-list{display:flex;flex-direction:column;gap:10px;padding:12px 16px;max-height:min(58vh,520px);overflow:auto}
+.lmodal-node-card{border:1px solid var(--card-b)!important;border-radius:12px!important;padding:14px!important;margin-bottom:0!important;background:var(--card)!important;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.lmodal-node-card.is-on{border-color:rgba(24,24,27,.35)!important;background:var(--bg3)!important}
+.lmodal-node-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.lmodal-node-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;font-weight:650;color:var(--t1)}
+.lmodal-group-chips{display:flex;flex-wrap:wrap;gap:8px}
+.lmodal-chip{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;border:1px solid var(--card-b);background:var(--bg2);color:var(--t2);font-size:12px;font-family:inherit;cursor:pointer}
+.lmodal-chip.on{background:var(--t1);color:var(--bg);border-color:transparent}
+.lmodal-chip.partial{background:var(--bg3);color:var(--t1);border-color:var(--card-bh)}
+.lmodal-section-title{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--t2);margin:8px 0}
+.lrow-v2,.lmodal-link-row{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--card-b);border-radius:10px;background:var(--card);margin-bottom:8px}
+.lrow-v2.on,.lmodal-link-row.on{border-color:var(--t1);background:var(--bg3)}
+.nx-grid{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))!important;gap:12px!important}
+#cluster-nodes-list .nx-grid{width:100%}
+/* scroll fix */
+html,body{height:auto!important;min-height:100%!important;overflow-x:hidden!important;overflow-y:auto!important}
+body{display:block!important;place-items:unset!important}
+.main{overflow:visible!important;min-height:100vh!important;padding-bottom:80px!important}
+.pg{overflow:visible!important}
+.pg.on{display:block!important}
+.sidebar{overflow-y:auto!important;-webkit-overflow-scrolling:touch}
+.cm-body,.modal-v2-body,.lmodal-list{overflow-y:auto!important;-webkit-overflow-scrolling:touch}
+@media(max-width:780px){
+  .main{padding:72px 14px 64px!important;margin-right:0!important}
+  .nx-grid{grid-template-columns:1fr!important}
+  .conn-grid-v2{grid-template-columns:1fr!important}
+  .cm-modal{width:calc(100% - 16px)!important;max-height:92dvh!important}
+}
+</style>
+<style id="fix-equal-cards">
+/* equal-size protocol/transport tiles */
+.cm-dd-list{display:grid!important;grid-template-columns:1fr!important;gap:8px!important}
+.cm-opt{min-height:72px!important;height:auto!important;align-items:center!important;margin-bottom:0!important;box-sizing:border-box!important}
+.cm-opt-body,.cm-opt-text{flex:1!important;min-width:0!important}
+.cm-opt-title{font-size:13.5px!important;font-weight:650!important}
+.cm-opt-desc{font-size:11px!important;line-height:1.5!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important}
+.cm-opt-row{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important}
+</style>
+
+<style id="fix-remark-ui">
+#remark-template,#info-templates{font-family:ui-monospace,monospace!important;font-size:12px!important;line-height:1.6!important}
+.remark-vars-box{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}
+.remark-vars-box code{font-size:10px;padding:4px 8px;border-radius:6px;background:var(--bg3);border:1px solid var(--card-b);color:var(--t2);cursor:pointer}
+.remark-preview-box{margin-top:10px;padding:12px 14px;border:1px dashed var(--card-b);border-radius:10px;background:var(--bg2);font-family:ui-monospace,monospace;font-size:11px;color:var(--t2);direction:ltr;text-align:left;line-height:1.8}
+</style>
 </head>
 <body>
 <div class="toast" id="toast"></div>
@@ -2775,7 +2822,7 @@ html .sidebar .brand-mark.small:before{content:"OX";font:800 10px ui-monospace,m
       <div class="card-title"><i class="ti ti-database"></i> سابسکریپشن کامل (ادمین)</div>
       <p style="font-size:11.5px;color:var(--t3);line-height:1.8;margin-bottom:4px">شامل تمام کانفیگ‌های فعال.</p>
       <div class="sub-box"><span class="sub-url" id="sub-all-url">در حال دریافت...</span><div style="display:flex;gap:6px"><button class="btn btn-sm btn-g" onclick="cpSubAll()"><i class="ti ti-copy"></i></button><button class="btn btn-sm btn-g" onclick="window.open(location.protocol+'//'+location.host+'/sub-all')"><i class="ti ti-external-link"></i></button></div></div>
-      <div class="cl amber" style="margin-top:11px"><i class="ti ti-alert-triangle"></i><span>این آدرس فقط در مرورگری که به پنل وارد شده کار می‌کند (نیاز به کوکی سشن).</span></div>
+      
     </div>
   </div>
   <div class="card">
@@ -3169,18 +3216,38 @@ html .sidebar .brand-mark.small:before{content:"OX";font:800 10px ui-monospace,m
 
     <div class="card" style="margin-top:16px">
       <div class="card-title"><i class="ti ti-text-recognition"></i> نام کانفیگ‌ها و خطوط آماری</div>
-      <div class="cl" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><span>متغیرها: <code dir="ltr">{label} {username} {status} {status_emoji} {remain_traffic} {total_traffic} {used_traffic} {remain_time} {remain_days} {protocol} {target} {domain} {cdn} {cdn_name} {extra_name} {flag} {sub_name}</code></span></div>
-      <div class="cl" style="margin-bottom:12px;font-size:12px;line-height:1.7">
-        <b>نمونه قالب نام:</b><br>
-        <code dir="ltr">{status_emoji} {label} · {cdn_name} · {target}</code> → 🟢 Me · CDN-NL · 1.2.3.4<br>
-        <code dir="ltr">{flag} {label} - {extra_name} - {target}</code> → 🇳🇱 Plan - CDN Secondary - clean.example.com<br>
-        <code dir="ltr">{label} | {remain_traffic}/{total_traffic} | {remain_days}d</code> → Me | 2.1 GB/10 GB | 12d<br>
-        <b>cdn_name / extra_name:</b> نام نمایشی دامنه کلادفلیر یا دامنه فرعی
+      <p style="font-size:12px;color:var(--t3);margin:0 0 12px;line-height:1.7">روی هر متغیر کلیک کن تا به قالب اضافه شود. <b>cdn_name / extra_name</b> = نام نمایشی دامنه کلادفلیر یا دامنه فرعی.</p>
+      <div class="remark-vars-box" id="remark-vars-box">
+        <code onclick="insertRemarkVar('{label}')">{label}</code>
+        <code onclick="insertRemarkVar('{username}')">{username}</code>
+        <code onclick="insertRemarkVar('{status}')">{status}</code>
+        <code onclick="insertRemarkVar('{status_emoji}')">{status_emoji}</code>
+        <code onclick="insertRemarkVar('{remain_traffic}')">{remain_traffic}</code>
+        <code onclick="insertRemarkVar('{total_traffic}')">{total_traffic}</code>
+        <code onclick="insertRemarkVar('{used_traffic}')">{used_traffic}</code>
+        <code onclick="insertRemarkVar('{remain_time}')">{remain_time}</code>
+        <code onclick="insertRemarkVar('{remain_days}')">{remain_days}</code>
+        <code onclick="insertRemarkVar('{protocol}')">{protocol}</code>
+        <code onclick="insertRemarkVar('{target}')">{target}</code>
+        <code onclick="insertRemarkVar('{domain}')">{domain}</code>
+        <code onclick="insertRemarkVar('{cdn_name}')">{cdn_name}</code>
+        <code onclick="insertRemarkVar('{extra_name}')">{extra_name}</code>
+        <code onclick="insertRemarkVar('{flag}')">{flag}</code>
+        <code onclick="insertRemarkVar('{sub_name}')">{sub_name}</code>
       </div>
-      <div class="fg"><label>قالب نام کانفیگ (remark)</label><input class="fi" id="remark-template" dir="ltr" placeholder="{status_emoji} {label} · {cdn_name} · {target}" style="width:100%"></div>
-      <div class="fg" style="margin-top:10px"><label>خطوط آماری (هر خط یک مورد)</label><textarea class="fi" id="info-templates" dir="ltr" style="width:100%;min-height:110px" placeholder="{status_emoji} وضعیت اشتراک: {status}&#10;👤 کاربر: {username}&#10;📦 باقیمانده: {remain_traffic} از {total_traffic}&#10;⏰ زمان: {remain_time}"></textarea></div>
-      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px"><input type="checkbox" id="info-configs-enabled" checked> نمایش کانفیگ‌های آماری در ابتدای ساب</label>
-      <div style="margin-top:14px"><button class="btn btn-p btn-sm" type="button" onclick="saveRemarkTemplates()"><i class="ti ti-device-floppy"></i> ذخیره قالب‌ها</button></div>
+      <div class="fg"><label>قالب نام کانفیگ (remark)</label>
+        <input class="fi" id="remark-template" dir="ltr" placeholder="{status_emoji} {label} · {cdn_name} · {target}" style="width:100%" oninput="updateRemarkPreview()">
+      </div>
+      <div class="remark-preview-box" id="remark-preview">🟢 Me · CDN-NL · 1.2.3.4</div>
+      <div class="fg" style="margin-top:14px"><label>خطوط آماری (هر خط یک مورد)</label>
+        <textarea class="fi" id="info-templates" dir="ltr" style="width:100%;min-height:120px" placeholder="{status_emoji} وضعیت: {status}&#10;باقیمانده: {remain_traffic}/{total_traffic}&#10;زمان: {remain_days}d" oninput="updateRemarkPreview()"></textarea>
+      </div>
+      <div class="remark-preview-box" id="info-preview" style="margin-top:8px">Me | 2.1 GB/10 GB | 12d</div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px"><input type="checkbox" id="info-configs-enabled" checked> نمایش کانفیگ‌های آماری در ابتدای ساب</label>
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-p btn-sm" type="button" onclick="saveRemarkTemplates()"><i class="ti ti-device-floppy"></i> ذخیره قالب‌ها</button>
+        <button class="btn btn-o btn-sm" type="button" onclick="document.getElementById('remark-template').value='{status_emoji} {label} · {cdn_name} · {target}';document.getElementById('info-templates').value='{label} | {remain_traffic}/{total_traffic} | {remain_days}d';updateRemarkPreview()"><i class="ti ti-restore"></i> پیش‌فرض</button>
+      </div>
     </div>
 
     <div class="card" style="margin-top:16px">
@@ -3885,7 +3952,26 @@ async function deleteLink(uuid){
   if(!confirm('این کانفیگ غیرفعال شود؟'))return;
   try{const r=await authF('/api/links/'+uuid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:false})});if(!r.ok)throw new Error();toast('کانفیگ غیرفعال شد','ok');loadLinks();}catch(e){toast('خطا','err')}
 }
-function showQR(link){window.open('https://api.qrserver.com/v1/create-qr-code/?size=300x300&data='+encodeURIComponent(link),'_blank')}
+function showQR(a,b){
+  let title='QR Code', text=a;
+  if(typeof b==='string'){title=a||'QR Code';text=b;}
+  const modal=document.getElementById('qr-modal');
+  const box=document.getElementById('qr-box');
+  const tit=document.getElementById('qr-title');
+  if(!modal||!box){toast('مودال QR یافت نشد','err');return;}
+  if(tit)tit.textContent=title;
+  box.innerHTML='';
+  try{
+    if(typeof QRCode==='function'){new QRCode(box,{text:String(text||''),width:200,height:200,correctLevel:QRCode.CorrectLevel.M});}
+    else{
+      const img=document.createElement('img');
+      img.alt='QR';img.width=200;img.height=200;
+      img.src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(String(text||''));
+      box.appendChild(img);
+    }
+  }catch(e){box.textContent='خطا در ساخت QR';}
+  modal.classList.add('on');
+}
 let allSubsRaw=[];
 async function loadSubs(){
   try{
@@ -4197,68 +4283,64 @@ function parseBytesFmt(s){
 }
 async function loadConns(){
   try{
-    const r=await authF('/api/connections'),d=await r.json();
+    const r=await authF('/api/connections');
+    const d=await r.json().catch(()=>({}));
     const grid=document.getElementById('conns-grid'),ce=document.getElementById('conns-empty');
-    document.getElementById('conns-live').innerHTML='<span class="dot dg pulse"></span> '+d.count+' اتصال';
-    document.getElementById('ch-count').textContent=toFa(d.count);
-    const conns=d.connections||[];
-    if(!d.count){
-      grid.innerHTML='';ce.style.display='block';
-      document.getElementById('ch-traffic').textContent='—';
-      document.getElementById('ch-avgdur').textContent='—';
-      document.getElementById('ch-uniq').textContent='—';
+    if(!grid)return;
+    const conns=Array.isArray(d.connections)?d.connections:[];
+    const count=Number(d.count!=null?d.count:conns.length)||0;
+    const live=document.getElementById('conns-live');
+    if(live)live.innerHTML='<span class="dot dg pulse"></span> '+toFa(count)+' اتصال';
+    const ch=document.getElementById('ch-count'); if(ch)ch.textContent=toFa(count);
+    const localN=Number(d.local_count||0), nodeN=Number(d.node_count||0);
+    if(!count||!conns.length){
+      grid.innerHTML='';
+      if(ce){ce.style.display='block';ce.innerHTML='<i class="ti ti-plug-off" style="font-size:28px;opacity:.5"></i><p>اتصال زنده‌ای نیست</p><p style="font-size:11px;color:var(--t3)">محلی: '+toFa(localN)+' · نود: '+toFa(nodeN)+'</p>';}
+      const a=document.getElementById('ch-traffic'); if(a)a.textContent='—';
+      const b=document.getElementById('ch-avgdur'); if(b)b.textContent='—';
+      const c=document.getElementById('ch-uniq'); if(c)c.textContent='—';
       return;
     }
-    ce.style.display='none';
-    const totalBytes=conns.reduce((s,c)=>s+parseBytesFmt(c.bytes_fmt),0);
-    document.getElementById('ch-traffic').textContent=fmtB(totalBytes);
-    const uniqIps=new Set(conns.map(c=>c.ip)).size;
-    document.getElementById('ch-uniq').textContent=toFa(uniqIps);
-    const durs=conns.map(c=>c.connected_at?Math.max(0,Math.floor((Date.now()-new Date(c.connected_at).getTime())/1000)):0);
+    if(ce)ce.style.display='none';
+    let totalBytes=0;
+    conns.forEach(c=>{totalBytes+=Number(c.bytes||0)||0; try{if(c.bytes_fmt&&typeof parseBytesFmt==='function'){/*keep*/}}catch(e){}});
+    if(!totalBytes){try{totalBytes=conns.reduce((s,c)=>s+(typeof parseBytesFmt==='function'?parseBytesFmt(c.bytes_fmt||'0'):0),0)}catch(e){totalBytes=0}}
+    const tr=document.getElementById('ch-traffic'); if(tr)tr.textContent=typeof fmtB==='function'?fmtB(totalBytes):(totalBytes+' B');
+    const uniqIps=new Set(conns.map(c=>c.ip).filter(Boolean)).size;
+    const u=document.getElementById('ch-uniq'); if(u)u.textContent=toFa(uniqIps);
+    const durs=conns.map(c=>{try{return c.connected_at?Math.max(0,Math.floor((Date.now()-new Date(c.connected_at).getTime())/1000)):0}catch(e){return 0}});
     const avgSec=durs.length?Math.floor(durs.reduce((a,b)=>a+b,0)/durs.length):0;
-    document.getElementById('ch-avgdur').textContent=avgSec<60?avgSec+' ث':avgSec<3600?Math.floor(avgSec/60)+' د':Math.floor(avgSec/3600)+' س';
+    const ad=document.getElementById('ch-avgdur'); if(ad)ad.textContent=avgSec<60?avgSec+' ث':avgSec<3600?Math.floor(avgSec/60)+' د':Math.floor(avgSec/3600)+' س';
     const maxDur=Math.max(...durs,1);
     grid.innerHTML=conns.map(c=>{
-      const secs=c.connected_at?Math.max(0,Math.floor((Date.now()-new Date(c.connected_at).getTime())/1000)):0;
+      const secs=(()=>{try{return c.connected_at?Math.max(0,Math.floor((Date.now()-new Date(c.connected_at).getTime())/1000)):0}catch(e){return 0}})();
       const dur=secs<60?secs+' ثانیه':secs<3600?Math.floor(secs/60)+' دقیقه':Math.floor(secs/3600)+' ساعت';
       const durPct=Math.min(100,Math.round((secs/maxDur)*100));
-      const protoVal=c.transport==='vless-ws'?'vless-ws':(c.transport||'').replace('xhttp-','xhttp-');
+      const protoVal=(c.transport||(c.transports&&c.transports[0])||'vless-ws');
+      const src=c.source==='node'?'نود':'محلی';
+      const nodeName=c.node_name?esc(c.node_name):'';
       return `<div class="conn-card-v2">
-        <div class="conn-card-v2-glow"></div>
         <div class="conn-card-v2-top">
-          <div class="conn-avatar"><i class="ti ti-device-desktop"></i></div>
+          <div class="conn-avatar"><i class="ti ti-${c.source==='node'?'server':'device-desktop'}"></i></div>
           <div class="conn-card-v2-id">
-            <div class="conn-ip-v2">${esc(c.ip)}
-              <button class="conn-ip-copy" onclick="navigator.clipboard.writeText('${esc(c.ip)}').then(()=>toast('IP کپی شد','ok'))" title="کپی IP"><i class="ti ti-copy"></i></button>
+            <div class="conn-ip-v2">${esc(c.ip||'—')}
+              <button class="conn-ip-copy" onclick="navigator.clipboard.writeText('${esc(c.ip||'')}').then(()=>toast('IP کپی شد','ok'))" title="کپی IP"><i class="ti ti-copy"></i></button>
             </div>
-            <div class="conn-label-v2">${esc(c.label)}</div>
+            <div class="conn-label-v2">${esc(c.label||'—')}</div>
           </div>
-          <span class="conn-status-pill"><span class="dot dg pulse"></span> زنده</span>
+          <span class="conn-status-pill"><span class="dot dg pulse"></span>${src}${nodeName?' · '+nodeName:''}</span>
         </div>
-        <div class="conn-card-v2-divider"></div>
         <div class="conn-card-v2-body">
-          <div class="conn-proto-row">${protoBadge(protoVal)}</div>
+          <div class="conn-proto-row">${typeof protoBadge==='function'?protoBadge(protoVal):esc(String(protoVal))}</div>
           <div class="conn-stat-row">
-            <div class="conn-stat-box">
-              <div class="conn-stat-icon"><i class="ti ti-transfer"></i></div>
-              <div>
-                <div class="conn-stat-text-label">ترافیک</div>
-                <div class="conn-stat-text-val">${esc(c.bytes_fmt)}</div>
-              </div>
-            </div>
-            <div class="conn-stat-box">
-              <div class="conn-stat-icon time"><i class="ti ti-clock"></i></div>
-              <div>
-                <div class="conn-stat-text-label">مدت اتصال</div>
-                <div class="conn-stat-text-val">${dur}</div>
-              </div>
-            </div>
+            <div class="conn-stat-box"><div class="conn-stat-icon"><i class="ti ti-transfer"></i></div><div><div class="conn-stat-text-label">ترافیک</div><div class="conn-stat-text-val">${esc(c.bytes_fmt||'0 B')}</div></div></div>
+            <div class="conn-stat-box"><div class="conn-stat-icon time"><i class="ti ti-clock"></i></div><div><div class="conn-stat-text-label">مدت</div><div class="conn-stat-text-val">${dur}</div></div></div>
           </div>
           <div class="conn-duration-track"><div class="conn-duration-fill" style="width:${durPct}%"></div></div>
         </div>
       </div>`;
     }).join('');
-  }catch(e){console.error(e)}
+  }catch(e){console.error(e);toast('خطا در بارگذاری اتصالات','err')}
 }
 async function loadErrs(){try{const r=await authF('/stats'),d=await r.json();renderErrs(d.recent_errors||[]);}catch(e){}}
 async function fetchDefaultVless(){
@@ -4333,6 +4415,25 @@ async function saveExtraDomain(){
   }catch(e){toast(e.message||'خطا','err')}
 }
 async function deleteExtraDomain(key){if(!confirm('دامنه فرعی حذف شود؟'))return; try{await authF('/api/extra-domains/'+encodeURIComponent(key),{method:'DELETE'});toast('حذف شد','ok');loadExtraDomains()}catch(e){toast('خطا','err')}}
+
+
+const _remarkSamples={'{status_emoji}':'🟢','{label}':'Me','{username}':'user1','{status}':'فعال','{remain_traffic}':'2.1 GB','{total_traffic}':'10 GB','{used_traffic}':'7.9 GB','{remain_time}':'12d','{remain_days}':'12','{protocol}':'VLESS','{target}':'1.2.3.4','{domain}':'edge.example.com','{cdn}':'CDN','{cdn_name}':'CDN-NL','{extra_name}':'Secondary','{flag}':'🇳🇱','{sub_name}':'Fam'};
+function insertRemarkVar(v){
+  const el=document.getElementById('remark-template'); if(!el)return;
+  const start=el.selectionStart||el.value.length, end=el.selectionEnd||start;
+  el.value=el.value.slice(0,start)+v+el.value.slice(end);
+  el.focus(); const pos=start+v.length; try{el.setSelectionRange(pos,pos)}catch(e){}
+  updateRemarkPreview();
+}
+function updateRemarkPreview(){
+  const compile=s=>{let o=String(s||'');Object.entries(_remarkSamples).forEach(([k,x])=>{o=o.split(k).join(x)});return o};
+  const rp=document.getElementById('remark-preview');
+  const ip=document.getElementById('info-preview');
+  const rt=document.getElementById('remark-template');
+  const it=document.getElementById('info-templates');
+  if(rp&&rt)rp.textContent=compile(rt.value)||'—';
+  if(ip&&it)ip.textContent=compile(it.value).split('\n').filter(Boolean).join(' · ')||'—';
+}
 
 async function saveRemarkTemplates(){
   const remark_template=(document.getElementById('remark-template')?.value||'').trim();
@@ -5424,7 +5525,7 @@ function toast(msg){
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2200);
 }
-function showQR(title, text){
+function showQR_unused_dup(title, text){
   document.getElementById('qr-title').textContent = title || 'QR';
   const box=document.getElementById('qr-box'); box.innerHTML='';
   try{ new QRCode(box, {text, width:180, height:180, correctLevel: QRCode.CorrectLevel.M}); }catch(e){}

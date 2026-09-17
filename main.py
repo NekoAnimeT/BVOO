@@ -2017,30 +2017,32 @@ async def get_connections(_=Depends(require_auth)):
                 }
                 for nid, n in NODES.items()
             ]
-        for ninfo in nodes_snap:
+        async def _pull_node(ninfo):
             host = (ninfo.get("host") or "").strip()
             token = (ninfo.get("token") or "").strip()
             if not host or not token:
-                continue
+                return 0, []
             base = host if host.startswith("http") else f"https://{host}"
             base = base.rstrip("/")
+            out_rows = []
+            raw = 0
             try:
-                async with httpx.AsyncClient(timeout=4.0, follow_redirects=True) as client:
+                async with httpx.AsyncClient(timeout=1.8, follow_redirects=True) as client:
                     r = await client.get(
                         f"{base}/api/cluster/peer-connections",
                         headers={"X-Node-Token": token, "Authorization": f"Bearer {token}"},
                     )
                     if r.status_code >= 400:
-                        continue
+                        return 0, []
                     data = r.json() if r.content else {}
                     rows = data.get("connections") or []
-                    node_raw += int(data.get("raw_count") or len(rows))
+                    raw = int(data.get("raw_count") or len(rows))
                     for row in rows:
                         if not isinstance(row, dict):
                             continue
                         labels = list(row.get("labels") or [])
                         label = row.get("label") or " · ".join(labels) or "نامشخص"
-                        result.append({
+                        out_rows.append({
                             "ip": row.get("ip") or "نامشخص",
                             "sessions": int(row.get("sessions") or 0),
                             "labels": labels,
@@ -2055,7 +2057,12 @@ async def get_connections(_=Depends(require_auth)):
                             "node_id": ninfo["id"],
                         })
             except Exception:
-                continue
+                return 0, []
+            return raw, out_rows
+        pulled = await asyncio.gather(*[_pull_node(n) for n in nodes_snap])
+        for raw, rows in pulled:
+            node_raw += int(raw or 0)
+            result.extend(rows)
 
     result.sort(key=lambda x: x.get("last_connected_at") or "", reverse=True)
     return {
@@ -3880,7 +3887,7 @@ async def _measure_node_ping(host: str) -> dict:
             port = 443
     t0 = time.perf_counter()
     try:
-        async with httpx.AsyncClient(timeout=3.5, follow_redirects=True, verify=False) as client:
+        async with httpx.AsyncClient(timeout=1.2, follow_redirects=True, verify=False) as client:
             url = f"https://{hostname}:{port}/health" if port != 443 else f"https://{hostname}/health"
             r = await client.get(url)
             ms = int((time.perf_counter() - t0) * 1000)
@@ -3891,7 +3898,7 @@ async def _measure_node_ping(host: str) -> dict:
     t0 = time.perf_counter()
     try:
         conn = asyncio.open_connection(hostname, port)
-        reader, writer = await asyncio.wait_for(conn, timeout=3.0)
+        reader, writer = await asyncio.wait_for(conn, timeout=1.0)
         ms = int((time.perf_counter() - t0) * 1000)
         writer.close()
         try:
