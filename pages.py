@@ -2240,6 +2240,18 @@ body{display:block!important;place-items:unset!important}
 .remark-vars-box code{font-size:10px;padding:4px 8px;border-radius:6px;background:var(--bg3);border:1px solid var(--card-b);color:var(--t2);cursor:pointer}
 .remark-preview-box{margin-top:10px;padding:12px 14px;border:1px dashed var(--card-b);border-radius:10px;background:var(--bg2);font-family:ui-monospace,monospace;font-size:11px;color:var(--t2);direction:ltr;text-align:left;line-height:1.8}
 </style>
+<style id="qr-modal-css">
+.qr-modal{position:fixed;inset:0;background:rgba(9,9,11,.72);display:none;align-items:center;justify-content:center;z-index:9999;padding:20px}
+.qr-modal.on{display:flex}
+.qr-box{box-shadow:0 20px 50px rgba(0,0,0,.35)}
+</style>
+<style id="lrow-check-fix">
+.lrow-v2{cursor:pointer;user-select:none;transition:border-color .15s,background .15s}
+.lrow-v2.checked,.lrow-v2.on{border-color:var(--t1)!important;background:var(--bg3)!important}
+.lrow-v2-check{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--card-b);display:grid;place-items:center;flex-shrink:0;color:transparent;background:var(--bg2)}
+.lrow-v2.checked .lrow-v2-check,.lrow-v2.on .lrow-v2-check{background:var(--t1);color:var(--bg);border-color:transparent}
+.lrow-v2.checked .lrow-v2-check i{color:inherit}
+</style>
 </head>
 <body>
 <div class="toast" id="toast"></div>
@@ -2819,13 +2831,6 @@ body{display:block!important;place-items:unset!important}
       <p style="font-size:11.5px;color:var(--t3);line-height:1.8;margin-bottom:12px">هر کانفیگ URL سابسکریپشن مخصوص دارد. از کارت کانفیگ روی آیکون <i class="ti ti-rss"></i> کلیک کنید.</p>
     </div>
     <div class="card">
-      <div class="card-title"><i class="ti ti-database"></i> سابسکریپشن کامل (ادمین)</div>
-      <p style="font-size:11.5px;color:var(--t3);line-height:1.8;margin-bottom:4px">شامل تمام کانفیگ‌های فعال.</p>
-      <div class="sub-box"><span class="sub-url" id="sub-all-url">در حال دریافت...</span><div style="display:flex;gap:6px"><button class="btn btn-sm btn-g" onclick="cpSubAll()"><i class="ti ti-copy"></i></button><button class="btn btn-sm btn-g" onclick="window.open(location.protocol+'//'+location.host+'/sub-all')"><i class="ti ti-external-link"></i></button></div></div>
-      
-    </div>
-  </div>
-  <div class="card">
     <div class="card-title"><i class="ti ti-folders"></i> لینک سابسکریپشن گروه‌ها</div>
     <div id="sub-groups-list">در حال بارگذاری...</div>
   </div>
@@ -3955,21 +3960,28 @@ async function deleteLink(uuid){
 function showQR(a,b){
   let title='QR Code', text=a;
   if(typeof b==='string'){title=a||'QR Code';text=b;}
-  const modal=document.getElementById('qr-modal');
+  text=String(text||'').trim();
+  if(!text){toast('متنی برای QR نیست','err');return;}
+  let modal=document.getElementById('qr-modal');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='qr-modal';modal.className='qr-modal on';
+    modal.onclick=function(e){if(e.target===modal)modal.classList.remove('on')};
+    modal.innerHTML='<div class="qr-box" style="background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:20px;max-width:320px;width:100%;text-align:center;margin:auto"><h3 id="qr-title" style="margin:0 0 12px;font-size:14px">QR Code</h3><div id="qr-box" style="display:inline-block;padding:8px;background:#fff;border-radius:8px"></div><button type="button" class="btn btn-g" style="margin-top:14px;width:100%" onclick="document.getElementById(\'qr-modal\').classList.remove(\'on\')">بستن</button></div>';
+    document.body.appendChild(modal);
+  }
   const box=document.getElementById('qr-box');
   const tit=document.getElementById('qr-title');
-  if(!modal||!box){toast('مودال QR یافت نشد','err');return;}
   if(tit)tit.textContent=title;
-  box.innerHTML='';
-  try{
-    if(typeof QRCode==='function'){new QRCode(box,{text:String(text||''),width:200,height:200,correctLevel:QRCode.CorrectLevel.M});}
-    else{
-      const img=document.createElement('img');
-      img.alt='QR';img.width=200;img.height=200;
-      img.src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(String(text||''));
-      box.appendChild(img);
+  if(box){
+    box.innerHTML='';
+    try{
+      if(typeof QRCode==='function'){new QRCode(box,{text:text,width:200,height:200,correctLevel:QRCode.CorrectLevel.M});}
+      else{const img=document.createElement('img');img.alt='QR';img.width=200;img.height=200;img.src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(text);box.appendChild(img);}
+    }catch(e){
+      const img=document.createElement('img');img.alt='QR';img.width=200;img.height=200;img.src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(text);box.appendChild(img);
     }
-  }catch(e){box.textContent='خطا در ساخت QR';}
+  }
   modal.classList.add('on');
 }
 let allSubsRaw=[];
@@ -4055,8 +4067,8 @@ async function deleteSub(sub_id){
     loadSubs();loadLinks();
   }catch(e){toast('خطا','err')}
 }
-let lmodalLinks=[],lmodalInSub=new Set(),lmodalOrigInSub=new Set();
-window.lmodalShowIndividuals=false;
+let lmodalLinks=[],lmodalInSub=new Set(),lmodalOrigInSub=new Set(),lmodalShowIndividuals=true;
+lmodalShowIndividuals=false;
 async function openSubLinks(sub_id,name){
   currentSubId=sub_id;
   document.getElementById('modal-sub-name').textContent=name;
@@ -4107,8 +4119,10 @@ function _lmodalBuildGroups(links){
   return {byNode, local};
 }
 function lmodalToggleIds(ids,force){
-  const allOn=ids.length&&ids.every(id=>lmodalInSub.has(id));
-  const on=force===undefined?!allOn:!!force;
+  if(typeof ids==='string'){try{ids=JSON.parse(ids)}catch(e){ids=[]}}
+  if(!Array.isArray(ids))ids=[];
+  const allOn=ids.length>0&&ids.every(id=>lmodalInSub.has(id));
+  const on=(force===undefined||force===null)?!allOn:!!force;
   ids.forEach(id=>{if(on)lmodalInSub.add(id);else lmodalInSub.delete(id)});
   renderLmodalList(lmodalLinks);
 }
@@ -4131,14 +4145,14 @@ function renderLmodalList(links){
             <span style="font-size:11px;color:var(--t3)">${toFa(sel)} انتخاب</span>
           </div>
           <div class="lmodal-node-actions">
-            <button type="button" class="btn btn-sm ${allOn?'btn-o':'btn-p'}" onclick="event.stopPropagation();lmodalToggleIds(${JSON.stringify(allIds)})">${allOn?'حذف همه':'افزودن همه'}</button>
+            <button type="button" class="btn btn-sm ${allOn?'btn-o':'btn-p'}" onclick="event.stopPropagation();lmodalToggleIds(JSON.parse(decodeURIComponent('${encodeURIComponent(JSON.stringify(allIds))}')))">${allOn?'حذف همه':'افزودن همه'}</button>
           </div>
         </div>
         <div class="lmodal-group-chips">`;
       for(const g of node.groups.values()){
         const gOn=g.ids.length&&g.ids.every(id=>lmodalInSub.has(id));
         const gPart=g.ids.some(id=>lmodalInSub.has(id))&&!gOn;
-        html+=`<button type="button" class="lmodal-chip ${gOn?'on':(gPart?'partial':'')}" onclick="event.stopPropagation();lmodalToggleIds(${JSON.stringify(g.ids)})">
+        html+=`<button type="button" class="lmodal-chip ${gOn?'on':(gPart?'partial':'')}" onclick="event.stopPropagation();lmodalToggleIds(JSON.parse(decodeURIComponent('${encodeURIComponent(JSON.stringify(g.ids))}')))">
           <i class="ti ti-${gOn?'circle-check':'folder'}"></i> ${esc(g.name)} <span>${toFa(g.ids.length)}</span>
         </button>`;
       }
@@ -4165,7 +4179,7 @@ function renderLmodalList(links){
     html+=`<div class="lmodal-section-title" style="margin-top:14px;cursor:pointer" onclick="lmodalShowIndividuals=!lmodalShowIndividuals;renderLmodalList(lmodalLinks)">
       <i class="ti ti-${lmodalShowIndividuals?'chevron-down':'chevron-left'}"></i> نمایش تک‌به‌تک نودها (${toFa(remotes.length)})
     </div>`;
-    if(window.lmodalShowIndividuals){
+    if(lmodalShowIndividuals){
       remotes.forEach(l=>{
         const checked=lmodalInSub.has(l.uuid);
         const on=l.active&&!l.expired;
@@ -4185,9 +4199,9 @@ function renderLmodalList(links){
 function toggleLrow(el){
   const uuid=el&&el.dataset?el.dataset.uuid:'';
   if(!uuid)return;
-  if(lmodalInSub.has(uuid)){lmodalInSub.delete(uuid);el.classList.remove('checked')}
-  else{lmodalInSub.add(uuid);el.classList.add('checked')}
-  updateLmodalCount();
+  if(lmodalInSub.has(uuid))lmodalInSub.delete(uuid);else lmodalInSub.add(uuid);
+  // بازسازی لیست تا وضعیت گروه/چیپ‌ها هم آپدیت شود
+  renderLmodalList(lmodalLinks);
 }
 function lmodalSelectAll(state){
   lmodalLinks.forEach(l=>{if(state)lmodalInSub.add(l.uuid);else lmodalInSub.delete(l.uuid)});
@@ -4250,7 +4264,7 @@ async function cutInactiveSubConfigs(){
   }catch(e){toast('خطا','err')}
 }
 async function loadSubsPage(){
-  document.getElementById('sub-all-url').textContent=location.protocol+'//'+location.host+'/sub-all';
+  /* sub-all removed */
   try{
     const r=await authF('/api/subs'),d=await r.json();
     const subs=d.subs||[];
@@ -5251,7 +5265,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initCharts();
   updateGreeting();
   loadPanelDomain();
-  document.getElementById('sub-all-url') && (document.getElementById('sub-all-url').textContent = location.protocol + '//' + location.host + '/sub-all');
+  /* sub-all removed */
   
   // ابتدا نسخه را بررسی کن
   // بروزرسانی خودکار در نسخه مستقل حذف شده است
@@ -5348,6 +5362,15 @@ async function startUpdate(){
   }
 }
 </script>
+
+<div class="qr-modal" id="qr-modal" onclick="if(event.target===this)this.classList.remove('on')">
+  <div class="qr-box" style="background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:20px;max-width:320px;width:100%;text-align:center">
+    <h3 id="qr-title" style="margin:0 0 12px;font-size:14px">QR Code</h3>
+    <div id="qr-box" style="display:inline-block;padding:8px;background:#fff;border-radius:8px;min-height:200px;min-width:200px"></div>
+    <button type="button" class="btn btn-g" style="margin-top:14px;width:100%" onclick="document.getElementById('qr-modal').classList.remove('on')">بستن</button>
+  </div>
+</div>
+
 </body></html>"""
 
 

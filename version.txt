@@ -1,2 +1,2 @@
-version=4.5.0
-description=UI/UX batch: equal cards, lmodal cards, QR modal, scroll, fast ping, connections, remark UI, traffic strip
+version=4.5.1
+description=QR modal in dashboard, fix group select toggle, remove admin sub-all
