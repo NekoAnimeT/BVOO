@@ -200,6 +200,10 @@ async def load_state():
             logger.info(f"State loaded from JSON: {len(LINKS)} links, {len(SUBS)} subs")
     except Exception as e:
         logger.warning(f"Could not load state: {e}")
+    try:
+        rebuild_path_index()
+    except Exception:
+        pass
 
 async def save_state():
     async with SAVE_LOCK:
@@ -511,8 +515,32 @@ def normalize_config_path(value: str | None) -> str | None:
         return None
     return value
 
+
+PATH_INDEX: dict[str, str] = {}
+
+def rebuild_path_index() -> None:
+    global PATH_INDEX
+    idx_map: dict[str, str] = {}
+    for uid, link in LINKS.items():
+        p = str(link.get("path") or "").strip().strip("/")
+        if p:
+            idx_map[p] = uid
+        idx_map[uid] = uid
+        alias = str(link.get("cluster_uuid_alias") or "").strip()
+        if alias:
+            idx_map[alias] = uid
+        for a in (link.get("uuid_aliases") or []):
+            if a:
+                idx_map[str(a)] = uid
+    PATH_INDEX = idx_map
+
 async def resolve_link_id(token: str) -> str | None:
     """Resolve either the original UUID or the custom path to the internal UUID."""
+    if not token:
+        return None
+    hit = PATH_INDEX.get(token)
+    if hit and hit in LINKS:
+        return hit
     async with LINKS_LOCK:
         if token in LINKS:
             return token
@@ -2027,7 +2055,7 @@ async def get_connections(_=Depends(require_auth)):
             out_rows = []
             raw = 0
             try:
-                async with httpx.AsyncClient(timeout=1.8, follow_redirects=True) as client:
+                async with httpx.AsyncClient(timeout=3.0, follow_redirects=True) as client:
                     r = await client.get(
                         f"{base}/api/cluster/peer-connections",
                         headers={"X-Node-Token": token, "Authorization": f"Bearer {token}"},
@@ -3421,7 +3449,9 @@ def _inject_panel_base(html: str) -> str:
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    if get_login_path():
+    # اگر مسیر مخفی تنظیم شده، /login خام را مخفی کن (HTML 404 نه JSON)
+    secret = get_login_path()
+    if secret:
         return _not_found_html()
     if await is_valid_session(request.cookies.get(SESSION_COOKIE)):
         return RedirectResponse(get_dashboard_url(), status_code=302)
@@ -3496,7 +3526,9 @@ async def ws_shadowsocks(ws: WebSocket, uuid: str):
 # مسیر ساده /{token} — فقط path رندوم در لینک‌ها
 _RESERVED_WS_PATHS = {
     "api", "login", "dashboard", "health", "stats", "sub", "sub-all", "sub-group",
-    "ws", "ss", "trojan-ws", "vless-tcp", "xhttp-siz10", "static", "assets", "docs", "openapi.json",
+    "ws", "ss", "trojan-ws", "vless-tcp", "xhttp-siz10", "static", "assets", "docs",
+    "openapi.json", "p", "proxy", "cf-sub", "domain-sub", "test-ws", "support",
+    "cluster", "settings", "customers", "cloudflare", "connections", "traffic",
 }
 
 @app.websocket("/{token}")
@@ -3925,7 +3957,7 @@ async def _measure_node_ping(host: str) -> dict:
             port = 443
     t0 = time.perf_counter()
     try:
-        async with httpx.AsyncClient(timeout=1.2, follow_redirects=True, verify=False) as client:
+        async with httpx.AsyncClient(timeout=3.0, follow_redirects=True, verify=False) as client:
             url = f"https://{hostname}:{port}/health" if port != 443 else f"https://{hostname}/health"
             r = await client.get(url)
             ms = int((time.perf_counter() - t0) * 1000)
@@ -3936,7 +3968,7 @@ async def _measure_node_ping(host: str) -> dict:
     t0 = time.perf_counter()
     try:
         conn = asyncio.open_connection(hostname, port)
-        reader, writer = await asyncio.wait_for(conn, timeout=1.0)
+        reader, writer = await asyncio.wait_for(conn, timeout=2.5)
         ms = int((time.perf_counter() - t0) * 1000)
         writer.close()
         try:
@@ -4240,6 +4272,63 @@ except Exception as _xhttp_err:
     logger.warning(f"XHTTP router not loaded: {_xhttp_err}")
 
 
+
+
+# ── Plain path XHTTP: only if first segment is a known config path token ──────
+class PlainPathXhttpMiddleware:
+    """Rewrite /{token}/... → /xhttp-siz10/... فقط برای path کانفیگ‌های XHTTP (O(1))."""
+
+    _SKIP_PREFIX = frozenset({
+        "api", "login", "dashboard", "health", "stats", "sub", "sub-all", "sub-group",
+        "ws", "ss", "trojan-ws", "vless-tcp", "xhttp-siz10", "static", "assets", "docs",
+        "openapi.json", "p", "proxy", "cf-sub", "domain-sub", "test-ws", "support",
+        "cluster", "settings", "customers", "cloudflare", "connections", "traffic",
+        "favicon.ico", "robots.txt",
+    })
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        path = scope.get("path") or ""
+        if (not path) or path == "/" or path.startswith("/api") or path.startswith("/xhttp-siz10"):
+            await self.app(scope, receive, send)
+            return
+        parts = path.strip("/").split("/")
+        if len(parts) < 2:
+            await self.app(scope, receive, send)
+            return
+        token = parts[0]
+        if token in self._SKIP_PREFIX:
+            await self.app(scope, receive, send)
+            return
+        uid = PATH_INDEX.get(token)
+        if not uid:
+            await self.app(scope, receive, send)
+            return
+        link = LINKS.get(uid) or {}
+        proto = str(link.get("protocol") or "")
+        if "xhttp" not in proto:
+            await self.app(scope, receive, send)
+            return
+        mode = "packet-up" if "packet" in proto else "stream-up"
+        method = (scope.get("method") or "GET").upper()
+        if len(parts) >= 3 and str(parts[-1]).isdigit():
+            session_id = parts[1]
+            seq = parts[-1]
+            new_path = f"/xhttp-siz10/packet-up/{uid}/{session_id}/{seq}"
+        else:
+            session_id = parts[1]
+            new_path = f"/xhttp-siz10/{mode}/{uid}/{session_id}"
+        scope = dict(scope)
+        scope["path"] = new_path
+        scope["raw_path"] = new_path.encode("utf-8")
+        await self.app(scope, receive, send)
+
+
 class VlessRootMiddleware:
     """
     Accept WebSocket on path=/ (Railway TCP Proxy sample style) without
@@ -4260,6 +4349,7 @@ class VlessRootMiddleware:
 
 
 app.add_middleware(VlessRootMiddleware)
+app.add_middleware(PlainPathXhttpMiddleware)
 
 
 if __name__ == "__main__":

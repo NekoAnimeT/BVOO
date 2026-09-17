@@ -223,6 +223,10 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
             asyncio.open_connection(address, port),
             timeout=8.0
         )
+        try:
+            _tune_socket(writer.get_extra_info("socket"))
+        except Exception:
+            pass
         _tune_socket(writer.transport.get_extra_info('socket'))
 
         if payload:
@@ -323,6 +327,10 @@ async def websocket_tunnel_root(ws: WebSocket):
             asyncio.open_connection(address, port),
             timeout=10.0
         )
+        try:
+            _tune_socket(writer.get_extra_info("socket"))
+        except Exception:
+            pass
         sock = writer.transport.get_extra_info("socket")
         if sock:
             import socket
