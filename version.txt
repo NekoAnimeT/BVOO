@@ -1,2 +1,2 @@
-version=4.5.1
-description=QR modal in dashboard, fix group select toggle, remove admin sub-all
+version=4.6.0
+description=Pro UI: config filters/bulk/drawer, cmd palette, skeleton, toast undo, bg node ping, design tokens

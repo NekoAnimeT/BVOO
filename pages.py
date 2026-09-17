@@ -2252,6 +2252,82 @@ body{display:block!important;place-items:unset!important}
 .lrow-v2.checked .lrow-v2-check,.lrow-v2.on .lrow-v2-check{background:var(--t1);color:var(--bg);border-color:transparent}
 .lrow-v2.checked .lrow-v2-check i{color:inherit}
 </style>
+
+<style id="oxnet-pro-v460">
+/* Design tokens */
+:root{
+  --sp-1:4px;--sp-2:8px;--sp-3:16px;--sp-4:24px;--sp-5:32px;
+  --rad-sm:8px;--rad-md:12px;--rad-lg:16px;
+  --ease:180ms ease;
+}
+.pg{animation:oxFade .18s ease}
+@keyframes oxFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes oxShimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+.sk{background:linear-gradient(90deg,var(--bg3) 25%,var(--card) 37%,var(--bg3) 63%);background-size:400% 100%;animation:oxShimmer 1.2s ease infinite;border-radius:var(--rad-sm)}
+.sk-line{height:12px;margin:8px 0}.sk-card{height:88px;margin-bottom:10px;border-radius:var(--rad-md)}
+.ox-empty{text-align:center;padding:48px 20px;border:1px dashed var(--card-b);border-radius:var(--rad-lg);background:var(--card)}
+.ox-empty i{font-size:36px;color:var(--t3);display:block;margin-bottom:12px}
+.ox-empty p{color:var(--t2);font-size:13px;margin:0 0 14px}
+.ox-empty .btn{margin:0 auto}
+
+/* Config toolbar */
+.cfg-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 14px;padding:12px;background:var(--card);border:1px solid var(--card-b);border-radius:var(--rad-md)}
+.cfg-toolbar .cfg-search{position:relative;flex:1;min-width:180px}
+.cfg-toolbar .cfg-search i{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:14px}
+.cfg-toolbar .cfg-search input{width:100%;height:38px;padding:0 34px 0 12px;border-radius:var(--rad-sm);border:1px solid var(--card-b);background:var(--bg2);color:var(--t1);font:inherit;font-size:12px}
+.cfg-toolbar select{height:38px;border-radius:var(--rad-sm);border:1px solid var(--card-b);background:var(--bg2);color:var(--t1);font:inherit;font-size:12px;padding:0 10px}
+.cfg-view-toggle{display:flex;gap:2px;background:var(--bg3);padding:3px;border-radius:var(--rad-sm)}
+.cfg-view-toggle button{width:34px;height:32px;border:0;background:transparent;color:var(--t3);border-radius:6px;cursor:pointer}
+.cfg-view-toggle button.on{background:var(--card);color:var(--t1);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.cfg-bulk{display:none;align-items:center;gap:10px;width:100%;padding:10px 12px;border-radius:var(--rad-md);background:#18181b;color:#fafafa;font-size:12px}
+[data-theme="light"] .cfg-bulk,html:not(.dark):not([data-theme="dark"]) .cfg-bulk{background:#18181b}
+.cfg-bulk.on{display:flex;flex-wrap:wrap}
+.cfg-bulk .btn{height:32px;min-height:32px;font-size:11px}
+
+/* Config checkbox + table view */
+.cfg-card{position:relative}
+.cfg-check{position:absolute;top:12px;left:12px;width:18px;height:18px;z-index:2;accent-color:#18181b}
+.cfg-grid.table-view{display:block}
+.cfg-grid.table-view .cfg-card,.cfg-grid.table-view .multi-group-card,.cfg-grid.table-view .remote-config-card{
+  margin-bottom:8px;border-radius:var(--rad-sm)!important}
+.cfg-grid.table-view .cfg-row{flex-wrap:nowrap;overflow-x:auto}
+
+/* Drawer */
+.ox-drawer-bg{position:fixed;inset:0;background:rgba(9,9,11,.55);z-index:80;display:none}
+.ox-drawer-bg.on{display:block}
+.ox-drawer{position:fixed;top:0;left:0;height:100%;width:min(420px,94vw);background:var(--card);border-right:1px solid var(--card-b);z-index:81;
+  transform:translateX(-105%);transition:transform var(--ease);display:flex;flex-direction:column;box-shadow:20px 0 50px rgba(0,0,0,.2)}
+.ox-drawer.on{transform:none}
+.ox-drawer-head{padding:16px 18px;border-bottom:1px solid var(--card-b);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ox-drawer-body{flex:1;overflow:auto;padding:16px 18px}
+.ox-drawer-foot{padding:12px 18px;border-top:1px solid var(--card-b);display:flex;gap:8px;flex-wrap:wrap}
+
+/* Command palette */
+.ox-cmd-bg{position:fixed;inset:0;background:rgba(9,9,11,.55);z-index:100;display:none;align-items:flex-start;justify-content:center;padding:12vh 16px 16px}
+.ox-cmd-bg.on{display:flex}
+.ox-cmd{width:min(560px,100%);background:var(--card);border:1px solid var(--card-b);border-radius:14px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.ox-cmd input{width:100%;height:52px;border:0;border-bottom:1px solid var(--card-b);background:transparent;color:var(--t1);padding:0 16px;font:inherit;font-size:14px;outline:none}
+.ox-cmd-list{max-height:320px;overflow:auto;padding:8px}
+.ox-cmd-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--t2)}
+.ox-cmd-item:hover,.ox-cmd-item.on{background:var(--bg3);color:var(--t1)}
+.ox-cmd-item i{font-size:16px;opacity:.8}
+.ox-cmd-hint{padding:8px 14px;font-size:10px;color:var(--t3);border-top:1px solid var(--card-b)}
+
+/* Toast stack + undo */
+#toast-stack{position:fixed;bottom:20px;left:20px;z-index:120;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.ox-toast{pointer-events:auto;min-width:240px;max-width:360px;padding:12px 14px;border-radius:10px;background:#18181b;color:#fafafa;font-size:12px;
+  display:flex;align-items:center;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,.25);animation:oxFade .18s ease}
+.ox-toast button{margin-right:auto;border:0;background:rgba(255,255,255,.12);color:#fff;border-radius:6px;padding:4px 8px;font:inherit;font-size:11px;cursor:pointer}
+
+/* Node sync meta */
+.nx-card .nx-sync{font-size:10px;color:var(--t3);margin-top:4px}
+.nx-ping-live{font-variant-numeric:tabular-nums}
+
+@media(max-width:720px){
+  .cfg-toolbar{padding:10px}
+  .ox-drawer{width:100%;border-right:0}
+}
+</style>
 </head>
 <body>
 <div class="toast" id="toast"></div>
@@ -2762,20 +2838,44 @@ body{display:block!important;place-items:unset!important}
 </section>
 <section class="pg" id="pg-links">
   <div class="topbar">
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-      <button class="btn btn-amber" onclick="cutOrphanConfigs()" title="قطع کانفیگ‌هایی که اشتراک‌شان حذف شده">
-        <i class="ti ti-unlink"></i> قطع یتیم‌ها
-      </button>
-      <button class="btn btn-o" onclick="cutInactiveSubConfigs()" title="قطع کانفیگ‌های اشتراک‌های غیرفعال">
-        <i class="ti ti-player-pause"></i> قطع غیرفعال‌ها
-      </button>
-      <button class="btn btn-p" onclick="resetCreateModal();openModal('modal-create-link')">
-        <i class="ti ti-plus"></i> ساخت کانفیگ جدید
-      </button>
-    </div>
-    <div class="tb-right">
+    <div><div class="tb-title"><i class="ti ti-link-plus"></i> کانفیگ‌ها</div><div class="tb-sub">فیلتر، انتخاب دسته‌ای و مدیریت سریع</div></div>
+    <div class="tb-right" style="display:flex;gap:8px;flex-wrap:wrap">
       <span class="badge bg-blue" id="links-pg-cnt">۰ کانفیگ</span>
+      <button class="btn btn-amber btn-sm" onclick="cutOrphanConfigs()"><i class="ti ti-unlink"></i> یتیم‌ها</button>
+      <button class="btn btn-o btn-sm" onclick="cutInactiveSubConfigs()"><i class="ti ti-player-pause"></i> غیرفعال‌ها</button>
+      <button class="btn btn-p btn-sm" onclick="resetCreateModal();openModal('modal-create-link')"><i class="ti ti-plus"></i> ساخت</button>
     </div>
+  </div>
+  <div class="cfg-toolbar">
+    <div class="cfg-search"><i class="ti ti-search"></i><input id="cfg-filter-q" placeholder="جستجو نام، UUID، نود..." oninput="applyCfgFilters()"></div>
+    <select id="cfg-filter-proto" onchange="applyCfgFilters()">
+      <option value="">همه پروتکل‌ها</option>
+      <option value="vless">VLESS</option>
+      <option value="trojan">Trojan</option>
+      <option value="xhttp">XHTTP</option>
+      <option value="shadowsocks">Shadowsocks</option>
+      <option value="mtproto">MTProto</option>
+      <option value="remote">نود</option>
+      <option value="multi">Multi</option>
+    </select>
+    <select id="cfg-filter-status" onchange="applyCfgFilters()">
+      <option value="">همه وضعیت‌ها</option>
+      <option value="on">فعال</option>
+      <option value="off">غیرفعال</option>
+      <option value="exp">منقضی</option>
+    </select>
+    <div class="cfg-view-toggle">
+      <button type="button" class="on" id="cfg-view-grid" onclick="setCfgView('grid')" title="کارت"><i class="ti ti-layout-grid"></i></button>
+      <button type="button" id="cfg-view-table" onclick="setCfgView('table')" title="جدول"><i class="ti ti-list"></i></button>
+    </div>
+  </div>
+  <div class="cfg-bulk" id="cfg-bulk">
+    <span id="cfg-bulk-count">۰ انتخاب</span>
+    <button class="btn btn-sm btn-g" onclick="cfgBulkActive(true)"><i class="ti ti-player-play"></i> فعال</button>
+    <button class="btn btn-sm btn-g" onclick="cfgBulkActive(false)"><i class="ti ti-player-pause"></i> غیرفعال</button>
+    <button class="btn btn-sm btn-amber" onclick="cfgBulkReset()"><i class="ti ti-rotate"></i> ریست مصرف</button>
+    <button class="btn btn-sm btn-d" onclick="cfgBulkDelete()"><i class="ti ti-trash"></i> حذف</button>
+    <button class="btn btn-sm btn-o" onclick="cfgClearSelection()">لغو</button>
   </div>
 
   <div class="info-strip">
@@ -5370,6 +5470,224 @@ async function startUpdate(){
     <button type="button" class="btn btn-g" style="margin-top:14px;width:100%" onclick="document.getElementById('qr-modal').classList.remove('on')">بستن</button>
   </div>
 </div>
+
+
+<div class="ox-drawer-bg" id="ox-drawer-bg" onclick="closeCfgDrawer()"></div>
+<aside class="ox-drawer" id="ox-drawer">
+  <div class="ox-drawer-head">
+    <div><div style="font-weight:700;font-size:14px" id="drawer-title">جزئیات کانفیگ</div>
+    <div style="font-size:11px;color:var(--t3)" id="drawer-sub">—</div></div>
+    <button type="button" class="btn btn-o btn-sm btn-icon" onclick="closeCfgDrawer()"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="ox-drawer-body" id="drawer-body"></div>
+  <div class="ox-drawer-foot" id="drawer-foot"></div>
+</aside>
+<div class="ox-cmd-bg" id="ox-cmd-bg" onclick="if(event.target===this)closeCmd()">
+  <div class="ox-cmd" onclick="event.stopPropagation()">
+    <input id="ox-cmd-input" placeholder="جستجوی دستور یا صفحه... (Ctrl+K)" oninput="filterCmd(this.value)" onkeydown="cmdKey(event)">
+    <div class="ox-cmd-list" id="ox-cmd-list"></div>
+    <div class="ox-cmd-hint">↑↓ حرکت · Enter اجرا · Esc بستن</div>
+  </div>
+</div>
+<div id="toast-stack"></div>
+
+
+<script id="oxnet-pro-js-v460">
+/* —— Pro layer: filters, bulk, drawer, cmd palette, toast undo, bg ping —— */
+window.__cfgSelected=window.__cfgSelected||new Set();
+window.__cfgView=localStorage.getItem('ox-cfg-view')||'grid';
+function setCfgView(v){
+  window.__cfgView=v; try{localStorage.setItem('ox-cfg-view',v)}catch(e){}
+  const g=document.getElementById('links-grid');
+  if(g)g.classList.toggle('table-view', v==='table');
+  const a=document.getElementById('cfg-view-grid'),b=document.getElementById('cfg-view-table');
+  if(a)a.classList.toggle('on',v==='grid'); if(b)b.classList.toggle('on',v==='table');
+}
+function applyCfgFilters(){
+  const q=(document.getElementById('cfg-filter-q')?.value||'').trim().toLowerCase();
+  const proto=document.getElementById('cfg-filter-proto')?.value||'';
+  const st=document.getElementById('cfg-filter-status')?.value||'';
+  document.querySelectorAll('#links-grid .cfg-card, #links-grid .multi-group-card, #links-grid .remote-config-card').forEach(card=>{
+    const text=(card.innerText||'').toLowerCase();
+    const isRemote=card.classList.contains('remote-config-card')||text.includes('نود');
+    const isMulti=card.classList.contains('multi-group-card');
+    let okProto=true;
+    if(proto==='remote')okProto=isRemote;
+    else if(proto==='multi')okProto=isMulti;
+    else if(proto)okProto=text.includes(proto);
+    let okSt=true;
+    if(st==='on')okSt=!card.classList.contains('is-off')&&!card.classList.contains('is-exp');
+    if(st==='off')okSt=card.classList.contains('is-off');
+    if(st==='exp')okSt=card.classList.contains('is-exp');
+    const okQ=!q||text.includes(q);
+    card.style.display=(okQ&&okProto&&okSt)?'':'none';
+  });
+}
+function cfgToggleSelect(uuid, checked){
+  if(checked)__cfgSelected.add(uuid); else __cfgSelected.delete(uuid);
+  const bar=document.getElementById('cfg-bulk');
+  const cnt=document.getElementById('cfg-bulk-count');
+  if(bar)bar.classList.toggle('on', __cfgSelected.size>0);
+  if(cnt)cnt.textContent=toFa(__cfgSelected.size)+' انتخاب';
+}
+function cfgClearSelection(){
+  __cfgSelected.clear();
+  document.querySelectorAll('#links-grid .cfg-check').forEach(c=>c.checked=false);
+  cfgToggleSelect('',false); __cfgSelected.clear();
+  const bar=document.getElementById('cfg-bulk'); if(bar)bar.classList.remove('on');
+}
+async function cfgBulkActive(on){
+  const ids=[...__cfgSelected]; if(!ids.length)return;
+  for(const id of ids){try{await authF('/api/links/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:!!on})})}catch(e){}}
+  oxToast((on?'فعال':'غیرفعال')+' شد: '+ids.length); cfgClearSelection(); loadLinks();
+}
+async function cfgBulkReset(){
+  const ids=[...__cfgSelected]; if(!ids.length)return;
+  if(!confirm('ریست مصرف '+ids.length+' کانفیگ؟'))return;
+  for(const id of ids){try{await authF('/api/links/'+id+'/reset',{method:'POST'})}catch(e){try{await authF('/api/links/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({used_bytes:0})})}catch(e2){}}}
+  oxToast('مصرف ریست شد'); cfgClearSelection(); loadLinks();
+}
+async function cfgBulkDelete(){
+  const ids=[...__cfgSelected]; if(!ids.length)return;
+  if(!confirm('حذف/غیرفعال کردن '+ids.length+' مورد؟'))return;
+  const snapshot=ids.slice();
+  for(const id of ids){try{await authF('/api/links/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:false})})}catch(e){}}
+  oxToast(ids.length+' مورد غیرفعال شد', ()=>{snapshot.forEach(async id=>{try{await authF('/api/links/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:true})})}catch(e){}});loadLinks();}, 'برگردان');
+  cfgClearSelection(); loadLinks();
+}
+function openCfgDrawer(uuid){
+  const list=window.__rawLinksList||window.allLinksList||[];
+  const l=(list||[]).find(x=>x.uuid===uuid)||(window.allLinksList||[]).find(x=>x.uuid===uuid);
+  if(!l){oxToast('کانفیگ پیدا نشد');return}
+  const bg=document.getElementById('ox-drawer-bg'), dr=document.getElementById('ox-drawer');
+  document.getElementById('drawer-title').textContent=l.label||'کانفیگ';
+  document.getElementById('drawer-sub').textContent=(PROTO_MAP[l.protocol]||[l.protocol||'—'])[0]+(l.remote_node?(' · '+ (l.node_name||'نود')):'');
+  const body=document.getElementById('drawer-body');
+  body.innerHTML=`
+    <div style="display:grid;gap:12px;font-size:12px">
+      <div><div style="color:var(--t3);margin-bottom:4px">وضعیت</div><b>${l.active&&!l.expired?'فعال':'غیرفعال/منقضی'}</b></div>
+      <div><div style="color:var(--t3);margin-bottom:4px">مصرف</div><b>${fmtB(l.used_bytes||0)} / ${l.limit_bytes?fmtB(l.limit_bytes):'∞'}</b></div>
+      <div><div style="color:var(--t3);margin-bottom:4px">UUID</div><code dir="ltr" style="font-size:11px">${esc(l.uuid||'')}</code></div>
+      <div><div style="color:var(--t3);margin-bottom:4px">لینک</div><textarea readonly dir="ltr" style="width:100%;min-height:90px;font-size:10px;border-radius:8px;border:1px solid var(--card-b);background:var(--bg2);color:var(--t1);padding:8px">${esc(l.vless_link||'')}</textarea></div>
+      <div id="drawer-qr" style="text-align:center"></div>
+    </div>`;
+  try{ if(l.vless_link){ const q=document.getElementById('drawer-qr'); q.innerHTML=''; if(typeof QRCode==='function') new QRCode(q,{text:l.vless_link,width:160,height:160});}}catch(e){}
+  document.getElementById('drawer-foot').innerHTML=`
+    <button class="btn btn-p btn-sm" onclick="navigator.clipboard.writeText('${esc(l.vless_link||'')}').then(()=>oxToast('کپی شد'))"><i class="ti ti-copy"></i> کپی</button>
+    <button class="btn btn-g btn-sm" onclick="showQR('${esc(l.vless_link||'')}')"><i class="ti ti-qrcode"></i> QR</button>
+    <button class="btn btn-amber btn-sm" onclick="closeCfgDrawer();openEditLink('${esc(l.uuid)}')"><i class="ti ti-edit"></i> ویرایش</button>`;
+  bg.classList.add('on'); dr.classList.add('on');
+}
+function closeCfgDrawer(){document.getElementById('ox-drawer-bg')?.classList.remove('on');document.getElementById('ox-drawer')?.classList.remove('on')}
+
+/* enhance loadLinks output: checkboxes + detail button */
+(function(){
+  const _loadLinks = window.loadLinks;
+  if(typeof _loadLinks!=='function')return;
+  window.loadLinks = async function(){
+    const grid=document.getElementById('links-grid');
+    if(grid){grid.innerHTML='<div class="sk sk-card"></div><div class="sk sk-card"></div><div class="sk sk-card"></div>';}
+    await _loadLinks.apply(this, arguments);
+    setCfgView(window.__cfgView||'grid');
+    // inject checkbox + details on cards
+    document.querySelectorAll('#links-grid .cfg-card').forEach(card=>{
+      if(card.querySelector('.cfg-check'))return;
+      const btn = card.querySelector('[onclick*="openEditLink"], [onclick*="deleteLink"]');
+      let uuid='';
+      const edit=card.querySelector('[onclick*="openEditLink"]');
+      if(edit){const m=String(edit.getAttribute('onclick')||'').match(/openEditLink\('([^']+)'\)/); if(m)uuid=m[1];}
+      if(!uuid){const del=card.querySelector('[onclick*="deleteLink"]'); if(del){const m=String(del.getAttribute('onclick')||'').match(/deleteLink\('([^']+)'\)/); if(m)uuid=m[1];}}
+      if(!uuid)return;
+      const cb=document.createElement('input'); cb.type='checkbox'; cb.className='cfg-check'; cb.onchange=()=>cfgToggleSelect(uuid, cb.checked);
+      card.appendChild(cb);
+      const actions=card.querySelector('.cfg-actions');
+      if(actions && !actions.querySelector('.cfg-detail-btn')){
+        const b=document.createElement('button');
+        b.className='btn btn-sm btn-o btn-icon cfg-detail-btn'; b.title='جزئیات'; b.innerHTML='<i class="ti ti-layout-sidebar-left-expand"></i>';
+        b.onclick=(e)=>{e.stopPropagation();openCfgDrawer(uuid)};
+        actions.prepend(b);
+      }
+    });
+    applyCfgFilters();
+    const empty=document.getElementById('links-empty');
+    if(empty && empty.style.display!=='none'){
+      empty.className='ox-empty'; empty.innerHTML='<i class="ti ti-link-off"></i><p>هنوز کانفیگی ساخته نشده</p><button class="btn btn-p btn-sm" onclick="resetCreateModal();openModal(\'modal-create-link\')"><i class="ti ti-plus"></i> ساخت اولین کانفیگ</button>';
+    }
+  };
+})();
+
+/* Toast with optional undo */
+function oxToast(msg, undoFn, undoLabel){
+  const stack=document.getElementById('toast-stack')||document.body;
+  const el=document.createElement('div'); el.className='ox-toast';
+  el.innerHTML='<span></span>'; el.querySelector('span').textContent=msg;
+  if(typeof undoFn==='function'){
+    const b=document.createElement('button'); b.textContent=undoLabel||'Undo';
+    b.onclick=()=>{undoFn(); el.remove()}; el.appendChild(b);
+  }
+  stack.appendChild(el);
+  setTimeout(()=>el.remove(), 4200);
+  try{toast(msg,'ok')}catch(e){}
+}
+
+/* Command palette */
+const OX_CMDS=[
+  {id:'cfg', title:'ساخت کانفیگ', icon:'ti-plus', run:()=>{resetCreateModal();openModal('modal-create-link')}},
+  {id:'sub', title:'گروه ساب جدید', icon:'ti-folder-plus', run:()=>openModal('modal-create-sub')},
+  {id:'links', title:'صفحه کانفیگ‌ها', icon:'ti-link-plus', run:()=>go('links')},
+  {id:'nodes', title:'شبکه نودها', icon:'ti-topology-star-3', run:()=>go('cluster')},
+  {id:'conns', title:'اتصالات زنده', icon:'ti-plug-connected', run:()=>go('connections')},
+  {id:'traf', title:'ترافیک', icon:'ti-chart-area', run:()=>go('traffic')},
+  {id:'set', title:'تنظیمات', icon:'ti-settings', run:()=>go('settings')},
+  {id:'ping', title:'پینگ همه نودها', icon:'ti-activity', run:()=>{if(typeof pingAllNodes==='function')pingAllNodes()}},
+  {id:'theme', title:'تغییر تم', icon:'ti-sun', run:()=>toggleTheme()},
+];
+let cmdIndex=0;
+function openCmd(){
+  const bg=document.getElementById('ox-cmd-bg'); if(!bg)return;
+  bg.classList.add('on'); cmdIndex=0; filterCmd('');
+  const inp=document.getElementById('ox-cmd-input'); if(inp){inp.value='';setTimeout(()=>inp.focus(),50)}
+}
+function closeCmd(){document.getElementById('ox-cmd-bg')?.classList.remove('on')}
+function filterCmd(q){
+  q=(q||'').toLowerCase();
+  const list=document.getElementById('ox-cmd-list'); if(!list)return;
+  const items=OX_CMDS.filter(c=>!q||c.title.toLowerCase().includes(q)||c.id.includes(q));
+  list.innerHTML=items.map((c,i)=>`<div class="ox-cmd-item ${i===cmdIndex?'on':''}" data-i="${i}" onclick="runCmd('${c.id}')"><i class="ti ${c.icon}"></i><span>${c.title}</span></div>`).join('')||'<div class="ox-cmd-item">موردی نیست</div>';
+  window.__cmdItems=items;
+}
+function runCmd(id){const c=OX_CMDS.find(x=>x.id===id); closeCmd(); if(c) try{c.run()}catch(e){console.error(e)}}
+function cmdKey(e){
+  const items=window.__cmdItems||[];
+  if(e.key==='Escape'){closeCmd();return}
+  if(e.key==='ArrowDown'){e.preventDefault();cmdIndex=Math.min(items.length-1,cmdIndex+1);filterCmd(document.getElementById('ox-cmd-input').value);return}
+  if(e.key==='ArrowUp'){e.preventDefault();cmdIndex=Math.max(0,cmdIndex-1);filterCmd(document.getElementById('ox-cmd-input').value);return}
+  if(e.key==='Enter'){e.preventDefault();const c=items[cmdIndex]; if(c)runCmd(c.id)}
+}
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openCmd()}
+  if(e.key==='Escape'){closeCmd();closeCfgDrawer()}
+});
+
+/* Background node ping every 60s when on cluster page */
+setInterval(()=>{
+  try{
+    if(document.getElementById('pg-cluster')?.classList.contains('on') && typeof pingAllNodes==='function'){
+      pingAllNodes();
+    }
+  }catch(e){}
+}, 60000);
+
+/* go() helper if missing */
+if(typeof window.go!=='function'){
+  window.go=function(name){
+    document.querySelectorAll('.nav-it').forEach(n=>{
+      if(n.getAttribute('data-pg')===name) n.click();
+    });
+  };
+}
+document.addEventListener('DOMContentLoaded',()=>{ setCfgView(window.__cfgView||'grid'); });
+</script>
 
 </body></html>"""
 
