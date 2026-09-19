@@ -1,2 +1,2 @@
-version=4.8.0
-description=All roadmap: dual central, device limit, emergency public kill, TG quota/expiry, wizard restore, node kill button, TCP pool, protocol priority, rate limit
+version=4.8.1
+description=Fix Telegram/backup/emergency buttons: add api() helper, try/catch, status messages

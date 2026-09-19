@@ -4502,7 +4502,10 @@ async def telegram_send_message(text: str) -> dict:
             })
             data = r.json() if r.content else {}
             ok = bool(data.get("ok"))
-            return {"ok": ok, "status": r.status_code, "data": data}
+            detail = ""
+            if not ok:
+                detail = str((data.get("description") or data.get("error_code") or data))[:300]
+            return {"ok": ok, "status": r.status_code, "data": data, "detail": detail}
     except Exception as exc:
         return {"ok": False, "detail": str(exc)[:200]}
 
