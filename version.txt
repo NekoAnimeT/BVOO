@@ -1,2 +1,2 @@
-version=4.8.1
-description=Fix Telegram/backup/emergency buttons: add api() helper, try/catch, status messages
+version=4.8.2
+description=Move Telegram/wizard/emergency JS into DASHBOARD_HTML (was wrongly in public page)

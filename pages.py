@@ -5759,6 +5759,141 @@ if(typeof window.go!=='function'){
   };
 }
 document.addEventListener('DOMContentLoaded',()=>{ setCfgView(window.__cfgView||'grid'); });
+
+/* ===== Telegram / Backup / Emergency (dashboard) ===== */
+function tgSetStatus(msg, ok){
+  const st=document.getElementById('tg-status');
+  if(st){ st.textContent=msg||''; st.style.color=ok===false?'#DC2626':(ok===true?'#16A34A':''); }
+}
+async function loadTelegramSettings(){
+  try{
+    if(typeof api!=='function'){ tgSetStatus('api() تعریف نشده', false); return; }
+    const r=await api('/api/telegram/settings');
+    const tok=document.getElementById('tg-bot-token');
+    if(tok && r.bot_token_mask) tok.placeholder=r.bot_token_mask;
+    const ad=document.getElementById('tg-admin-id');
+    if(ad && r.admin_id) ad.value=r.admin_id;
+    const bm=document.getElementById('tg-backup-min');
+    if(bm && r.backup_every_min) bm.value=r.backup_every_min;
+    const en=document.getElementById('tg-enabled'); if(en) en.checked=!!r.enabled;
+    const nn=document.getElementById('tg-notify-node'); if(nn) nn.checked=r.notify_node_down!==false;
+    if(r.last_backup_at) tgSetStatus((r.last_ok?'آخرین بکاپ موفق: ':'آخرین بکاپ: ')+r.last_backup_at, !!r.last_ok);
+  }catch(e){ console.error(e); tgSetStatus('خطا بارگذاری تلگرام: '+(e.message||e), false); }
+}
+async function saveTelegramSettings(){
+  tgSetStatus('در حال ذخیره و تست…');
+  try{
+    if(typeof api!=='function'){ toast('api موجود نیست','err'); return; }
+    const body={
+      bot_token: (document.getElementById('tg-bot-token')?.value||'').trim()||'unchanged',
+      admin_id: (document.getElementById('tg-admin-id')?.value||'').trim(),
+      backup_every_min: parseInt(document.getElementById('tg-backup-min')?.value||'10',10),
+      enabled: !!(document.getElementById('tg-enabled')?.checked),
+      notify_node_down: !!(document.getElementById('tg-notify-node')?.checked),
+    };
+    if(!body.admin_id){ tgSetStatus('Admin Chat ID را وارد کنید', false); toast('Admin Chat ID خالی است','err'); return; }
+    const r=await api('/api/telegram/settings',{method:'POST',body:JSON.stringify(body)});
+    if(r.test && r.test.ok){
+      tgSetStatus('اتصال تلگرام موفق — پیام تست ارسال شد', true);
+      toast('تلگرام متصل شد','ok');
+    } else {
+      const detail=(r.test&&(r.test.detail||r.test.description))||JSON.stringify(r.test||{});
+      tgSetStatus('ذخیره شد اما تست پیام ناموفق: '+detail, false);
+      toast('ذخیره شد — تست ناموفق','err');
+    }
+    loadTelegramSettings();
+  }catch(e){ console.error(e); tgSetStatus('خطا: '+(e.message||e), false); toast('خطا در ذخیره تلگرام','err'); }
+}
+async function tgTest(){
+  tgSetStatus('در حال ارسال پیام تست…');
+  try{
+    const r=await api('/api/telegram/test',{method:'POST',body:'{}'});
+    if(r.ok){ tgSetStatus('پیام تست ارسال شد', true); toast('پیام تست OK','ok'); }
+    else { tgSetStatus('تست ناموفق: '+(r.detail||JSON.stringify(r)), false); toast('تست ناموفق','err'); }
+  }catch(e){ tgSetStatus('خطا: '+(e.message||e), false); toast('خطا در تست','err'); }
+}
+async function tgBackupNow(){
+  tgSetStatus('در حال ارسال بکاپ…');
+  try{
+    const r=await api('/api/telegram/backup-now',{method:'POST',body:'{}'});
+    if(r.ok){ tgSetStatus('بکاپ به تلگرام ارسال شد', true); toast('بکاپ ارسال شد','ok'); }
+    else { tgSetStatus('بکاپ ناموفق: '+(r.detail||JSON.stringify(r)), false); toast('خطا بکاپ','err'); }
+  }catch(e){ tgSetStatus('خطا: '+(e.message||e), false); toast('خطا بکاپ','err'); }
+}
+function downloadBackup(){ toast('دانلود بکاپ…','ok'); window.open('/api/backup/export','_blank'); }
+async function emergencyDisableAll(){
+  if(!confirm('همه کانفیگ‌های محلی غیرفعال شوند؟')) return;
+  try{ const r=await api('/api/emergency/disable-all-local',{method:'POST',body:'{}'}); toast('غیرفعال شد: '+(r.disabled||0),'ok'); }
+  catch(e){ toast('خطا: '+(e.message||e),'err'); }
+}
+async function emergencyEnableAll(){
+  try{ const r=await api('/api/emergency/enable-all-local',{method:'POST',body:'{}'}); toast('فعال شد: '+(r.enabled||0),'ok'); }
+  catch(e){ toast('خطا: '+(e.message||e),'err'); }
+}
+async function emergencyDisconnectCentral(){
+  if(!confirm('نود از مرکزی جدا شود؟')) return;
+  try{ const r=await api('/api/emergency/disconnect-central',{method:'POST',body:'{}'}); toast(r.ok?'از مرکزی جدا شد':'فقط روی نقش نود','ok'); }
+  catch(e){ toast('خطا: '+(e.message||e),'err'); }
+}
+async function importUris(){
+  try{
+    const text=document.getElementById('import-uris')?.value||'';
+    if(!text.trim()){ toast('متنی وارد نشده','err'); return; }
+    const r=await api('/api/links/import',{method:'POST',body:JSON.stringify({text})});
+    toast('وارد شد: '+(r.count||0),'ok');
+    if(typeof loadLinks==='function') loadLinks();
+  }catch(e){ toast('خطا ایمپورت: '+(e.message||e),'err'); }
+}
+async function refreshWizard(){
+  try{
+    const r=await api('/api/cluster/wizard-status');
+    const el=document.getElementById('wizard-steps');
+    if(!el)return;
+    el.innerHTML=(r.steps||[]).map(s=>`${s.done?'✅':'⬜'} ${s.title}`).join('<br>');
+  }catch(e){
+    const el=document.getElementById('wizard-steps');
+    if(el) el.textContent='خطا: '+(e.message||e);
+  }
+}
+async function restoreBackupFile(input){
+  const f=input.files&&input.files[0]; if(!f)return;
+  try{
+    const text=await f.text();
+    const data=JSON.parse(text);
+    if(!confirm('بازیابی بکاپ همه لینک/ساب/نود را جایگزین می‌کند. ادامه؟')) return;
+    const r=await api('/api/backup/restore-upload',{method:'POST',body:JSON.stringify(data)});
+    toast(r.ok?('بازیابی OK — '+(r.subs||0)+' ساب'):'خطا بازیابی', r.ok?'ok':'err');
+    refreshWizard();
+  }catch(e){ toast('فایل نامعتبر: '+(e.message||e),'err'); }
+}
+async function genEmergencyLink(){
+  try{
+    const r=await api('/api/emergency/public-token',{method:'POST',body:'{}'});
+    const box=document.getElementById('emergency-link-box');
+    if(box) box.innerHTML='یک‌بارمصرف:<br><code dir="ltr">'+((r.url)||'')+'</code>';
+    toast('لینک اضطراری ساخته شد','ok');
+  }catch(e){ toast('خطا: '+(e.message||e),'err'); }
+}
+async function saveSecondaryCentral(){
+  try{
+    const v=(document.getElementById('cluster-central-secondary')||{}).value||'';
+    await api('/api/cluster/settings',{method:'PATCH',body:JSON.stringify({central_url_secondary:v})});
+    toast('Fallback ذخیره شد','ok');
+  }catch(e){ toast('خطا: '+(e.message||e),'err'); }
+}
+async function killNodeRemote(nodeId){
+  if(!confirm('قطع همه کانفیگ‌های این نود؟')) return;
+  try{
+    const r=await api('/api/cluster/nodes/'+encodeURIComponent(nodeId)+'/kill',{method:'POST',body:'{}'});
+    toast(r.ok?'نود قطع شد':'خطا در قطع نود', r.ok?'ok':'err');
+  }catch(e){ toast('خطا: '+(e.message||e),'err'); }
+}
+document.addEventListener('DOMContentLoaded', function(){
+  try{ loadTelegramSettings(); }catch(e){}
+  try{ refreshWizard(); }catch(e){}
+});
+setTimeout(function(){ try{ loadTelegramSettings(); refreshWizard(); }catch(e){} }, 600);
+
 </script>
 
 </body></html>"""
