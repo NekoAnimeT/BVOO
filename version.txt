@@ -1,2 +1,2 @@
-version=4.6.5
-description=XHTTP plain path only /token — no xhttp-siz10/stream-up/packet-up in client URI; robust server rewrite
+version=4.8.0
+description=All roadmap: dual central, device limit, emergency public kill, TG quota/expiry, wizard restore, node kill button, TCP pool, protocol priority, rate limit

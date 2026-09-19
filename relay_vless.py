@@ -28,8 +28,43 @@ from main import (
 # VLESS Relay — بهینه‌شده برای حداکثر throughput
 # ══════════════════════════════════════════════════════════════════════════════
 
-RELAY_BUF = 512 * 1024   # 512 KB — throughput بالاتر
-_USAGE_BATCH = 64 * 1024  # قفل فقط هر ۶۴KB یک‌بار (کاهش latency)
+RELAY_BUF = 1024 * 1024  # 1 MB — throughput بالاتر
+
+# Simple short-lived TCP destination cache (address,port) -> (reader,writer,ts)
+_TCP_POOL: dict = {}
+_TCP_POOL_LOCK = asyncio.Lock()
+_TCP_POOL_TTL = 8.0  # seconds
+
+async def _pooled_open(address: str, port: int, timeout: float = 12.0):
+    """Reuse recent outbound TCP if still open; else new connection."""
+    key = (address, int(port))
+    now = __import__("time").time()
+    async with _TCP_POOL_LOCK:
+        ent = _TCP_POOL.get(key)
+        if ent:
+            reader, writer, ts = ent
+            if now - ts < _TCP_POOL_TTL and not writer.is_closing():
+                _TCP_POOL.pop(key, None)
+                try:
+                    _tune_socket(writer.get_extra_info("socket"))
+                except Exception:
+                    pass
+                return reader, writer
+            try:
+                writer.close()
+            except Exception:
+                pass
+            _TCP_POOL.pop(key, None)
+    reader, writer = await asyncio.wait_for(
+        asyncio.open_connection(address, port), timeout=timeout
+    )
+    try:
+        _tune_socket(writer.get_extra_info("socket"))
+    except Exception:
+        pass
+    return reader, writer
+
+_USAGE_BATCH = 256 * 1024  # قفل فقط هر ۶۴KB یک‌بار (کاهش latency)
 _usage_pending: dict[str, int] = {}
 
 
@@ -190,6 +225,22 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
 
     ip = _ws_client_ip(ws)
     conn_id = secrets.token_urlsafe(6)
+    sub_id = None
+    dkey = None
+    try:
+        from main import register_device_conn, unregister_device_conn, allow_new_connection
+        cip = ip
+        if not allow_new_connection(cip):
+            await ws.close(code=1008, reason="rate")
+            return
+        sub_id = (link or {}).get("sub_id")
+        dkey = cip + "|" + str(uid)
+        if not register_device_conn(sub_id, dkey):
+            await ws.close(code=1008, reason="device limit")
+            return
+    except Exception:
+        sub_id = (link or {}).get("sub_id") if link else None
+        dkey = None
     connections[conn_id] = {
         "uuid": uid,
         "ip": ip,
@@ -219,10 +270,7 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
         connections[conn_id]["bytes"] += len(first_chunk)
         logger.info(f"️  [{conn_id}] → {address}:{port}")
 
-        reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(address, port),
-            timeout=8.0
-        )
+        reader, writer = await _pooled_open(address, port, timeout=12.0)
         try:
             _tune_socket(writer.get_extra_info("socket"))
         except Exception:
@@ -265,6 +313,12 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
                 await writer.wait_closed()
             except Exception:
                 pass
+        try:
+            from main import unregister_device_conn
+            if sub_id and dkey:
+                unregister_device_conn(sub_id, dkey)
+        except Exception:
+            pass
         connections.pop(conn_id, None)
         logger.info(f" WS closed [{conn_id}] total={len(connections)}")
 
@@ -323,10 +377,7 @@ async def websocket_tunnel_root(ws: WebSocket):
         connections[conn_id]["bytes"] += len(first_chunk)
         logger.info(f"️  [{conn_id}] → {address}:{port}")
 
-        reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(address, port),
-            timeout=10.0
-        )
+        reader, writer = await _pooled_open(address, port, timeout=12.0)
         try:
             _tune_socket(writer.get_extra_info("socket"))
         except Exception:

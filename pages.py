@@ -3222,7 +3222,62 @@ body{display:block!important;place-items:unset!important}
       <div class="cl" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><span>برای اینکه بعد از Redeploy داده‌ها پاک نشوند، در Railway یک <b>Volume</b> بساز و روی مسیر <b dir="ltr">/data</b> مونت کن. مسیر فعلی: <b dir="ltr" id="data-dir-path">—</b> · پایدار: <b id="data-dir-ok">—</b></span></div>
     </div>
 
-    <div class="card cluster-card" id="cluster-management-card" style="margin-top:0;grid-column:1/-1">
+    
+<!-- TELEGRAM + BACKUP + EMERGENCY -->
+
+<div class="card" id="v48-wizard-card" style="margin-top:16px;grid-column:1/-1">
+  <div class="card-title"><i class="ti ti-topology-ring"></i> ویزارد بازیابی / کلاستر</div>
+  <div id="wizard-steps" class="tb-sub">در حال بارگذاری…</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center">
+    <label class="btn btn-secondary" style="cursor:pointer">آپلود بکاپ JSON
+      <input type="file" id="backup-file" accept="application/json,.json" style="display:none" onchange="restoreBackupFile(this)">
+    </label>
+    <button type="button" class="btn btn-secondary" onclick="genEmergencyLink()">لینک قطع اضطراری (بدون لاگین)</button>
+    <button type="button" class="btn btn-secondary" onclick="refreshWizard()">بروزرسانی وضعیت</button>
+  </div>
+  <div id="emergency-link-box" class="tb-sub" style="margin-top:10px;word-break:break-all"></div>
+  <div class="fg" style="margin-top:12px"><label>آدرس ثانویه مرکزی (Fallback)</label>
+    <input class="fi" id="cluster-central-secondary" dir="ltr" placeholder="https://central2.example.com" style="width:100%">
+    <button type="button" class="btn btn-primary" style="margin-top:8px" onclick="saveSecondaryCentral()">ذخیره Fallback</button>
+  </div>
+</div>
+
+<div class="card" id="tg-backup-card" style="margin-top:16px;grid-column:1/-1">
+  <div class="card-title"><i class="ti ti-brand-telegram"></i> تلگرام و بکاپ</div>
+  <div class="tb-sub" style="margin-bottom:12px">توکن ربات + آیدی عددی ادمین. با ذخیره پیام موفقیت می‌آید؛ بکاپ خودکار هر N دقیقه.</div>
+  <div class="grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+    <div class="fg"><label>Bot Token</label><input class="fi" id="tg-bot-token" dir="ltr" placeholder="123456:ABC..." style="width:100%"></div>
+    <div class="fg"><label>Admin Chat ID</label><input class="fi" id="tg-admin-id" dir="ltr" placeholder="123456789" style="width:100%"></div>
+    <div class="fg"><label>فاصله بکاپ (دقیقه)</label><input class="fi" id="tg-backup-min" type="number" min="5" value="10" style="width:100%"></div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="tg-enabled" checked> فعال</label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="tg-notify-node" checked> هشدار نود قطع</label>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px">
+    <button type="button" class="btn btn-primary" onclick="saveTelegramSettings()">ذخیره و تست</button>
+    <button type="button" class="btn btn-secondary" onclick="tgTest()">ارسال پیام تست</button>
+    <button type="button" class="btn btn-secondary" onclick="tgBackupNow()">بکاپ الان به تلگرام</button>
+    <button type="button" class="btn btn-secondary" onclick="downloadBackup()">دانلود بکاپ JSON</button>
+  </div>
+  <div id="tg-status" class="tb-sub" style="margin-top:10px"></div>
+</div>
+<div class="card" id="emergency-card" style="margin-top:16px;grid-column:1/-1">
+  <div class="card-title" style="color:var(--danger,#DC2626)"><i class="ti ti-alert-triangle"></i> اضطراری</div>
+  <div class="tb-sub" style="margin-bottom:12px">اگر مرکزی بن شد: روی نود همه کانفیگ‌ها را قطع کن یا از مرکزی جدا شو. روی مرکزی می‌توانی یک نود را از راه دور قطع کنی.</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
+    <button type="button" class="btn btn-danger" onclick="emergencyDisableAll()">قطع همه کانفیگ‌های محلی</button>
+    <button type="button" class="btn btn-secondary" onclick="emergencyEnableAll()">فعال‌سازی دوباره محلی</button>
+    <button type="button" class="btn btn-danger" onclick="emergencyDisconnectCentral()">جدا شدن نود از مرکزی</button>
+  </div>
+</div>
+<div class="card" id="import-links-card" style="margin-top:16px;grid-column:1/-1">
+  <div class="card-title"><i class="ti ti-file-import"></i> ایمپورت لینک</div>
+  <textarea class="fi" id="import-uris" rows="4" dir="ltr" placeholder="vless://...&#10;trojan://..." style="width:100%;font-family:monospace;font-size:12px"></textarea>
+  <button type="button" class="btn btn-primary" style="margin-top:10px" onclick="importUris()">ورود لینک‌ها</button>
+</div>
+
+<div class="card cluster-card" id="cluster-management-card" style="margin-top:0;grid-column:1/-1">
       <div class="card-title"><i class="ti ti-server-2"></i> نقش و اتصال پنل</div>
       <div class="cl" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><span>
         برای چند منطقه Railway (آمریکا / هلند / سنگاپور): یک پنل را <b>مرکزی</b> کن و بقیه را <b>نود</b>.
@@ -4759,7 +4814,7 @@ function renderClusterNodesUI(nodes, remoteCount){
     const seen=(n.last_seen||'').replace('T',' ').slice(0,16);
     const tone=_pingTone(n.last_ping_ms,n.last_ping_ok);
     const online=n.last_ping_ok!==false;
-    return `<article class="nx-card" data-name="${esc((n.name||'')+' '+(n.host||'')+' '+loc.label).toLowerCase()}" data-country="${esc(loc.label)}">
+    return `<article class="nx-card" data-node-id="${esc(n.id||'')}" data-name="${esc((n.name||'')+' '+(n.host||'')+' '+loc.label).toLowerCase()}" data-country="${esc(loc.label)}">
       <div class="nx-card-head">
         <div class="nx-card-id">
           <span class="nx-flag">${loc.flag}</span>
@@ -4781,6 +4836,7 @@ function renderClusterNodesUI(nodes, remoteCount){
       <div class="nx-foot">
         <span><i class="ti ti-link"></i> ${toFa(cfg)} کانفیگ</span>
         <span dir="ltr"><i class="ti ti-clock"></i> ${esc(seen||'—')}</span>
+        <button type="button" class="nx-icon danger" onclick="killNodeRemote('${esc(n.id)}')" title="قطع اضطراری نود"><i class="ti ti-player-stop"></i></button>
         <button type="button" class="nx-icon danger" onclick="deleteClusterNode('${esc(n.id)}')" title="حذف"><i class="ti ti-trash"></i></button>
       </div>
     </article>`;
@@ -5979,6 +6035,121 @@ async function load(){
   }
 }
 load();
+
+async function loadTelegramSettings(){
+  try{
+    const r=await api('/api/telegram/settings');
+    if(r.bot_token_mask) document.getElementById('tg-bot-token').placeholder=r.bot_token_mask;
+    if(r.admin_id) document.getElementById('tg-admin-id').value=r.admin_id;
+    if(r.backup_every_min) document.getElementById('tg-backup-min').value=r.backup_every_min;
+    const en=document.getElementById('tg-enabled'); if(en) en.checked=!!r.enabled;
+    const nn=document.getElementById('tg-notify-node'); if(nn) nn.checked=r.notify_node_down!==false;
+    const st=document.getElementById('tg-status');
+    if(st) st.textContent=(r.last_ok?'آخرین بکاپ موفق: ':'')+(r.last_backup_at||'');
+  }catch(e){}
+}
+async function saveTelegramSettings(){
+  const body={
+    bot_token: document.getElementById('tg-bot-token').value.trim()||'unchanged',
+    admin_id: document.getElementById('tg-admin-id').value.trim(),
+    backup_every_min: parseInt(document.getElementById('tg-backup-min').value||'10',10),
+    enabled: document.getElementById('tg-enabled').checked,
+    notify_node_down: document.getElementById('tg-notify-node').checked,
+  };
+  const r=await api('/api/telegram/settings',{method:'POST',body:JSON.stringify(body)});
+  const st=document.getElementById('tg-status');
+  if(r.test&&r.test.ok){ if(st) st.textContent='اتصال تلگرام موفق — پیام تست ارسال شد'; toast&&toast('تلگرام OK','ok'); }
+  else { if(st) st.textContent='ذخیره شد — تست: '+(r.test&&r.test.detail||JSON.stringify(r.test||{})); toast&&toast('ذخیره شد','ok'); }
+  loadTelegramSettings();
+}
+async function tgTest(){ const r=await api('/api/telegram/test',{method:'POST',body:'{}'}); toast&&toast(r.ok?'پیام تست OK':'خطا','ok'); }
+async function tgBackupNow(){ const r=await api('/api/telegram/backup-now',{method:'POST',body:'{}'}); toast&&toast(r.ok?'بکاپ ارسال شد':'خطا بکاپ','ok'); }
+function downloadBackup(){ window.open('/api/backup/export','_blank'); }
+async function emergencyDisableAll(){
+  if(!confirm('همه کانفیگ‌های محلی غیرفعال شوند؟')) return;
+  const r=await api('/api/emergency/disable-all-local',{method:'POST',body:'{}'});
+  toast&&toast('غیرفعال: '+(r.disabled||0),'ok');
+}
+async function emergencyEnableAll(){
+  const r=await api('/api/emergency/enable-all-local',{method:'POST',body:'{}'});
+  toast&&toast('فعال: '+(r.enabled||0),'ok');
+}
+async function emergencyDisconnectCentral(){
+  if(!confirm('نود از مرکزی جدا شود؟')) return;
+  const r=await api('/api/emergency/disconnect-central',{method:'POST',body:'{}'});
+  toast&&toast(r.ok?'جدا شد':'فقط روی نود','ok');
+}
+async function importUris(){
+  const text=document.getElementById('import-uris').value;
+  const r=await api('/api/links/import',{method:'POST',body:JSON.stringify({text})});
+  toast&&toast('وارد شد: '+(r.count||0),'ok');
+  if(typeof loadLinks==='function') loadLinks();
+}
+document.addEventListener('DOMContentLoaded',()=>{ try{ loadTelegramSettings(); }catch(e){} });
+
+
+async function refreshWizard(){
+  try{
+    const r=await api('/api/cluster/wizard-status');
+    const el=document.getElementById('wizard-steps');
+    if(!el)return;
+    el.innerHTML=(r.steps||[]).map(s=>`${s.done?'✅':'⬜'} ${s.title}`).join('<br>');
+  }catch(e){}
+}
+async function restoreBackupFile(input){
+  const f=input.files&&input.files[0]; if(!f)return;
+  try{
+    const text=await f.text();
+    const data=JSON.parse(text);
+    if(!confirm('بازیابی بکاپ همه لینک/ساب/نود را جایگزین می‌کند. ادامه؟')) return;
+    const r=await api('/api/backup/restore-upload',{method:'POST',body:JSON.stringify(data)});
+    toast&&toast(r.ok?('بازیابی OK — '+r.subs+' ساب'):'خطا','ok');
+    refreshWizard();
+  }catch(e){ toast&&toast('فایل نامعتبر','err'); }
+}
+async function genEmergencyLink(){
+  const r=await api('/api/emergency/public-token',{method:'POST',body:'{}'});
+  const box=document.getElementById('emergency-link-box');
+  if(box) box.innerHTML='یک‌بارمصرف (بعد از استفاده باطل می‌شود):<br><code dir="ltr">'+((r.url)||'')+'</code>';
+  toast&&toast('لینک اضطراری ساخته شد','ok');
+}
+async function saveSecondaryCentral(){
+  const v=(document.getElementById('cluster-central-secondary')||{}).value||'';
+  await api('/api/cluster/settings',{method:'PATCH',body:JSON.stringify({central_url_secondary:v})});
+  toast&&toast('Fallback ذخیره شد','ok');
+}
+document.addEventListener('click',function(ev){
+  const b=ev.target.closest('[data-kill-node]');
+  if(b){ ev.preventDefault(); killNodeRemote(b.getAttribute('data-kill-node')); }
+});
+async function killNodeRemote(nodeId){
+  if(!confirm('قطع همه کانفیگ‌های این نود؟')) return;
+  const r=await api('/api/cluster/nodes/'+encodeURIComponent(nodeId)+'/kill',{method:'POST',body:'{}'});
+  toast&&toast(r.ok?'نود قطع شد':'خطا در قطع نود','ok');
+}
+document.addEventListener('DOMContentLoaded',()=>{ try{ refreshWizard(); }catch(e){} });
+
+
+(function(){
+  const _origFetch = window.api;
+  // enhance node list HTML after load
+  window.enhanceNodeKillButtons = function(){
+    const root = document.getElementById('cluster-nodes-list') || document.getElementById('cluster-page-slot');
+    if(!root) return;
+    root.querySelectorAll('[data-node-id]').forEach(el=>{
+      if(el.querySelector('[data-kill-node]')) return;
+      const id = el.getAttribute('data-node-id');
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-danger';
+      btn.style.cssText = 'margin-top:8px;font-size:12px';
+      btn.setAttribute('data-kill-node', id);
+      btn.textContent = 'قطع اضطراری نود';
+      el.appendChild(btn);
+    });
+    // also if cards don't have data-node-id, try data-id
+  };
+  setInterval(()=>{ try{ enhanceNodeKillButtons(); }catch(e){} }, 3000);
+})();
 </script>
 </body></html>"""
     return html.replace("__UUID_KEY__", str(uuid_key))

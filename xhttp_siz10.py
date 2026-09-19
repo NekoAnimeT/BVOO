@@ -59,7 +59,7 @@ QUOTA_MAX_BATCH = 2 * 1024 * 1024   # سقف بالاتر تا await های کو
 QUOTA_START_BATCH = 128 * 1024
 QUOTA_CHECK_INTERVAL = 0.25  # سقف زمانی؛ حتی اگر batch پر نشده، بعد این مدت چک کن
 
-PACKET_UP_HIGH_WATER = 2 * 1024 * 1024  # packet-up همون منطق ساده‌ی قبلی رو داره
+PACKET_UP_HIGH_WATER = 4 * 1024 * 1024  # packet-up همون منطق ساده‌ی قبلی رو داره
 
 xhttp_sessions: dict = {}
 XHTTP_LOCK = asyncio.Lock()
@@ -572,3 +572,35 @@ async def stream_up_upload(uuid: str, session_id: str, request: Request):
 
         await gate.flush()
         return {"ok": True}
+
+
+# ── Neutral path /r/{token}/... (بدون نام پروتکل در URL کلاینت) ───────────────
+@router.get("/r/{uuid}/{session_id}")
+async def r_downlink(uuid: str, session_id: str, request: Request):
+    ensure_reaper()
+    uid = await resolve_link_id(uuid)
+    if not uid:
+        raise HTTPException(status_code=404, detail="not found")
+    async with LINKS_LOCK:
+        link = dict(LINKS.get(uid) or {})
+    proto = str(link.get("protocol") or "")
+    mode = "packet-up" if "packet" in proto else "stream-up"
+    if mode not in ("packet-up", "stream-up", "stream-one"):
+        mode = "stream-up"
+    await _check_link(uid)
+    fp = request.query_params.get("fp", DEFAULT_FINGERPRINT)
+    sess = await _get_or_create_session(uid, "stream-up" if mode == "stream-one" else mode, session_id, _req_client_ip(request))
+    if sess.get("closed"):
+        raise HTTPException(status_code=404, detail="session closed")
+    headers = _resp_headers(fp)
+    return StreamingResponse(_downstream_gen(sess), headers=headers, media_type=headers["content-type"])
+
+
+@router.post("/r/{uuid}/{session_id}/{seq}")
+async def r_packet_up(uuid: str, session_id: str, seq: int, request: Request):
+    return await packet_up_upload(uuid, session_id, seq, request)
+
+
+@router.post("/r/{uuid}/{session_id}")
+async def r_stream_up(uuid: str, session_id: str, request: Request):
+    return await stream_up_upload(uuid, session_id, request)

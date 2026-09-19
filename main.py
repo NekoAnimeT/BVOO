@@ -22,11 +22,11 @@ import uvicorn
 import httpx
 import logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger("OXNET")
+logger = logging.getLogger("app")
 
 IRAN_TZ = ZoneInfo("Asia/Tehran")
 
-app = FastAPI(title="OXNET Edge Console", docs_url=None, redoc_url=None)
+app = FastAPI(title="App", docs_url=None, redoc_url=None, openapi_url=None)
 
 app.add_middleware(
     CORSMiddleware,
@@ -175,9 +175,18 @@ async def load_state():
             SETTINGS.setdefault("extra_domains", [])
             SETTINGS.setdefault("railway_tcp", {"domain": "", "port": 0, "path_mode": "panel"})
             SETTINGS.setdefault("reality", {"host": "", "port": 443, "pbk": "", "sid": "", "sni": "", "fp": "chrome", "spx": "/"})
+            SETTINGS.setdefault("telegram", {
+                "bot_token": "", "admin_id": "", "backup_every_min": 10,
+                "notify_quota": True, "notify_node_down": True, "enabled": False,
+                "last_backup_at": "", "last_ok": False,
+            })
+            SETTINGS.setdefault("node_health", {
+                "interval_sec": 120, "fail_threshold": 2, "sub_skip_offline": True,
+            })
             SETTINGS.setdefault("cluster", {
                 "role": "standalone", "node_name": "", "region": "",
-                "central_url": "", "node_token": "", "cluster_secret": "", "auto_sync": True,
+                "central_url": "",
+                "central_url_secondary": "", "node_token": "", "cluster_secret": "", "auto_sync": True,
             })
             if isinstance(data.get("nodes"), dict):
                 NODES.clear()
@@ -285,6 +294,7 @@ SETTINGS: dict = {
         "node_name": "",
         "region": "",           # us-east | us-west | nl | sg | custom
         "central_url": "",      # https://central.example.com
+        "central_url_secondary": "",  # fallback if primary down
         "node_token": "",       # توکن اختصاصی این نود
         "cluster_secret": "",   # فقط روی مرکزی — برای ثبت نود جدید
         "auto_sync": True,
@@ -293,9 +303,27 @@ SETTINGS: dict = {
         "sync_extra": True,     # دامنه‌های فرعی + IP/دامنه تمیز
         "sync_cf": False,       # دامنه‌های کلادفلیر نود (اختیاری)
     },
+    "telegram": {
+        "bot_token": "",
+        "admin_id": "",
+        "backup_every_min": 10,
+        "notify_quota": True,
+        "notify_node_down": True,
+        "enabled": False,
+        "last_backup_at": "",
+        "last_ok": False,
+    },
+    "node_health": {
+        "interval_sec": 120,
+        "fail_threshold": 2,
+        "sub_skip_offline": True,
+    },
 }
 # نودهای ثبت‌شده روی پنل مرکزی: id -> meta + configs
 NODES: dict = {}
+# sub_id -> set of connection keys (ip+ua hash) for device limit
+DEVICE_CONN_INDEX: dict = {}
+
 NODES_LOCK = asyncio.Lock()
 FAILED_LOGINS: dict = {}
 
@@ -320,7 +348,7 @@ def log_activity(kind: str, message: str, level: str = "info"):
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
-SESSION_COOKIE = "oxnet_session"
+SESSION_COOKIE = "sid"
 SESSION_TTL = 60 * 60 * 24 * 7
 
 def hash_password(pw: str) -> str:
@@ -398,10 +426,14 @@ async def startup():
         limits=limits, timeout=timeout, follow_redirects=True,
     )
     asyncio.create_task(_cluster_auto_sync_loop())
+    asyncio.create_task(_telegram_backup_loop())
+    asyncio.create_task(_node_health_loop())
+    asyncio.create_task(_quota_notify_loop())
+    asyncio.create_task(_central_watchdog_loop())
     await load_state()
     await _restart_mtproto_instances()
     log_activity("system", "سرور راه‌اندازی شد", "ok")
-    logger.info(f"OXNET v{get_current_panel_version()} started on port {CONFIG['port']}")
+    logger.info(f"app listening on {CONFIG['port']}")
 
 async def _restart_mtproto_instances():
     async with LINKS_LOCK:
@@ -445,7 +477,7 @@ async def _mtproto_usage_callback(uuid: str, n_bytes: int) -> bool:
         _charge_local_link_to_sub(uuid, n_bytes)
     # اگر این پنل نود است، مصرف را به مرکزی بفرست
     if _cluster_role() == "node":
-        asyncio.create_task(report_usage_to_central(uuid, n_bytes))
+        asyncio.create_task(report_usage_to_central_multi(uuid, n_bytes))
     return True
 
 mtproto.set_usage_callback(_mtproto_usage_callback)
@@ -480,7 +512,7 @@ async def _update_mtproto_ad_tag(uuid: str, ad_tag: str):
             link["ad_tag"] = ad_tag
             link["ad_tag_status"] = "done"          # ← جدید
             link["ad_tag_link"] = generate_share_link(   # ← جدید، لینک تازه با سکرت جدید
-                uuid, get_host(), remark=f"OXNET-{link.get('label','')}", protocol="mtproto"
+                uuid, get_host(), remark=f"{link.get('label','')}", protocol="mtproto"
             )
         await save_state()            # ذخیره فوری در دیتابیس/دیسک
         logger.info(f"MTProto[{uuid[:8]}]: ad_tag به‌روز شد و instance ری‌استارت شد")
@@ -766,7 +798,7 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
             "path": wspath,
         }
         query = "&".join(f"{k}={quote(str(v), safe='')}" for k, v in params.items())
-        tag = remark or "OXNET-TCP"
+        tag = remark or "node"
         return f"vless://{public_uuid}@{_uri_authority_host(t_host)}:{t_port}?{query}#{quote(tag)}"
 
     # ── VLESS Reality (TCP) share link ───────────────────────────────────────
@@ -797,7 +829,7 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
             "sid": sid,
         }
         query = "&".join(f"{k}={quote(str(v), safe='')}" for k, v in params.items())
-        tag = remark or "OXNET-Reality"
+        tag = remark or "node"
         return f"vless://{public_uuid}@{_uri_authority_host(r_host)}:{r_port}?{query}#{quote(tag)}"
 
     # path همیشه فقط /{token} تصادفی — بدون /ws /xhttp-siz10 /trojan-ws
@@ -810,7 +842,7 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
             plugin = quote(f"v2ray-plugin;tls;mode=websocket;host={tls_host};path={clean_path}", safe="")
         else:
             plugin = quote(f"v2ray-plugin;mode=websocket;host={tls_host};path={clean_path}", safe="")
-        tag = remark or "OXNET-Shadowsocks"
+        tag = remark or "node"
         if not use_tls:
             tag = f"{tag}-HTTP80"
         return f"ss://{user}@{authority_host}:{int(port)}?plugin={plugin}#{quote(tag)}"
@@ -839,10 +871,10 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
         mode = protocol.replace("trojan-xhttp-", "")
         if mode == "stream-one":
             mode = "stream-up"
-        # XHTTP باید مسیر بومی سرور باشد تا کلاینت به هندلر واقعی برسد
+        r_path = f"/r/{str(public_path).lstrip('/')}"
         params = {
-        "security": security, "type": "xhttp", "mode": mode, "host": tls_host,
-            "path": clean_path, "fp": "chrome", "alpn": "h2,http/1.1",
+            "security": security, "type": "xhttp", "mode": mode, "host": tls_host,
+            "path": r_path, "fp": "chrome", "alpn": "h2,http/1.1",
         }
         if use_tls:
             params["sni"] = tls_host
@@ -868,13 +900,14 @@ def generate_share_link(uuid: str, host: str, remark: str = "OXNET", protocol: s
             mode = "stream-up"
         if mode not in ("packet-up", "stream-up", "stream-one"):
             mode = "stream-up"
+        r_path = f"/r/{str(public_path).lstrip('/')}"
         params = {
-        "encryption": "none",
-        "security": security,
+            "encryption": "none",
+            "security": security,
             "type": "xhttp",
             "mode": mode,
             "host": tls_host,
-            "path": clean_path,
+            "path": r_path,
             "fp": "chrome",
             "alpn": "h2,http/1.1",
         }
@@ -1229,17 +1262,13 @@ async def ensure_default_link():
 # ── Basic endpoints ───────────────────────────────────────────────────────────
 @app.get("/")
 async def root():
-    return {
-        "service": "OXNET Edge Console",
-        "product": "edge-delivery",
-        "version": get_current_panel_version(),
-        "status": "active",
-    }
+    # پاسخ عمومی شبیه اپ عادی — بدون نام محصول/پروتکل
+    return {"ok": True}
 
 @app.get("/health")
 @app.get("/healthz")
+@app.get("/ready")
 async def health():
-    """Health سبک برای Koyeb / Railway / reverse proxy — بدون auth و بدون IO سنگین."""
     return {"status": "ok"}
 
 # ── Subscription (single link) ────────────────────────────────────────────────
@@ -1428,6 +1457,11 @@ def _collect_sub_share_lines(sub: dict, host: str) -> tuple[list[str], list[dict
     for lid in link_ids:
         lid = str(lid)
         if _is_remote_link_id(lid):
+            try:
+                if not is_remote_link_eligible(lid):
+                    continue
+            except Exception:
+                pass
             cfg = _resolve_remote_config(lid)
             if not cfg or not _as_bool(cfg.get("active", True)):
                 continue
@@ -1450,6 +1484,12 @@ def _collect_sub_share_lines(sub: dict, host: str) -> tuple[list[str], list[dict
             allowed_links.append(link)
             lines.extend(_share_lines_for_all_domains(lid, link, host, sub=sub))
     lines = list(dict.fromkeys(lines))
+    pref = list(sub.get("preferred_protocols") or [])
+    if pref:
+        try:
+            lines = _sort_lines_by_protocol_pref(lines, pref)
+        except Exception:
+            pass
     return lines, allowed_links
 
 
@@ -1884,7 +1924,7 @@ async def sub_group_subscription(uuid_key: str, request: Request):
         media_type="text/plain",
         headers={
             "profile-title": quote(sub["name"]),
-            "profile-update-interval": "12",
+            "profile-update-interval": "24",
         }
     )
 
@@ -2466,7 +2506,7 @@ async def domain_sub_main(uuid_key: str, request: Request):
     content = base64.b64encode("\n".join(lines).encode()).decode()
     return Response(content=content, media_type="text/plain", headers={
         "profile-title": quote(f"{sub.get('name','OXNET')} Main"),
-        "profile-update-interval": "12",
+        "profile-update-interval": "24",
     })
 
 @app.get("/domain-sub/extra/{key}")
@@ -2548,7 +2588,7 @@ async def domain_sub_extra_group(key: str, uuid_key: str, request: Request):
     content = base64.b64encode("\n".join(lines).encode()).decode()
     return Response(content=content, media_type="text/plain", headers={
         "profile-title": quote(f"{sub.get('name','OXNET')} {domain}"),
-        "profile-update-interval": "12",
+        "profile-update-interval": "24",
     })
 
 # ── Link Management ───────────────────────────────────────────────────────────
@@ -2622,7 +2662,7 @@ async def create_link(request: Request, _=Depends(require_auth)):
                     "sync_to_central": True,
                 }
                 sub["link_ids"].append(muid)
-                links_out.append({"uuid": muid, "path": mpath, "protocol": p, "vless_link": generate_share_link(muid, host, remark=f"OXNET-{label}-{p}", protocol=p)})
+                links_out.append({"uuid": muid, "path": mpath, "protocol": p, "vless_link": generate_share_link(muid, host, remark=f"{label}-{p}", protocol=p)})
         async with SUBS_LOCK:
             SUBS[sub_id] = sub
         await save_state()
@@ -2729,7 +2769,7 @@ async def create_link(request: Request, _=Depends(require_auth)):
         "uuid": uid,
         **LINKS[uid],
         "expired": False,
-        "vless_link": generate_share_link(uid, host, remark=f"OXNET-{label}", protocol=protocol),
+        "vless_link": generate_share_link(uid, host, remark=f"{label}", protocol=protocol),
         "sub_url": f"https://{host}/sub/{LINKS[uid].get('path') or uid}",
     }
 
@@ -2748,7 +2788,7 @@ async def list_links(_=Depends(require_auth)):
             "active": _as_bool(d.get("active", True)),
             "allowed": is_link_allowed(d),
             "expired": is_link_expired(d),
-            "vless_link": generate_share_link(uid, host, remark=f"OXNET-{d['label']}", protocol=proto),
+            "vless_link": generate_share_link(uid, host, remark=f"{d['label']}", protocol=proto),
             "sub_url": f"https://{host}/sub/{d.get('path') or uid}",
         })
     if _cluster_role() == "central":
@@ -3100,7 +3140,7 @@ async def public_sub_data(uuid_key: str, request: Request):
             "limit_bytes": link.get("limit_bytes", 0),
             "limit_fmt": "∞" if link.get("limit_bytes", 0) == 0 else fmt_bytes(link["limit_bytes"]),
             "expires_at": link.get("expires_at"),
-            "vless_link": generate_share_link(lid, host, remark=f"OXNET-{link['label']}", protocol=proto),
+            "vless_link": generate_share_link(lid, host, remark=f"{link['label']}", protocol=proto),
             "sub_url": f"https://{host}/sub/{link.get('path') or lid}",
             "connections": conn_count,
         })
@@ -3542,6 +3582,7 @@ async def ws_shadowsocks(ws: WebSocket, uuid: str):
 
 # مسیر ساده /{token} — فقط path رندوم در لینک‌ها
 _RESERVED_WS_PATHS = {
+    "r",
     "api", "login", "dashboard", "health", "stats", "sub", "sub-all", "sub-group",
     "ws", "ss", "trojan-ws", "vless-tcp", "xhttp-siz10", "static", "assets", "docs",
     "openapi.json", "p", "proxy", "cf-sub", "domain-sub", "test-ws", "support",
@@ -3669,12 +3710,19 @@ async def api_cluster_control(request: Request):
     action = str(body.get("action") or "")
     source_ids = [str(x) for x in (body.get("source_ids") or [])]
     base_ids = {x.split(":", 1)[0] for x in source_ids if x}
+    apply_all = action in ("disable_all", "enable_all") and not base_ids
     changed = 0
     async with LINKS_LOCK:
         for uid, link in LINKS.items():
-            if uid not in base_ids:
+            if not apply_all and uid not in base_ids:
                 continue
-            if action == "set_active":
+            if action == "disable_all":
+                link["active"] = False
+                changed += 1
+            elif action == "enable_all":
+                link["active"] = True
+                changed += 1
+            elif action == "set_active":
                 link["active"] = _as_bool(body.get("value"))
                 changed += 1
             elif action == "set_uuid_alias":
@@ -3745,6 +3793,8 @@ async def api_cluster_settings(request: Request, _=Depends(require_auth)):
         c["node_name"] = str(body.get("node_name") or "").strip()[:60]
     if "region" in body:
         c["region"] = str(body.get("region") or "").strip()[:40]
+    if "central_url_secondary" in body:
+        c["central_url_secondary"] = str(body.get("central_url_secondary") or "").strip()
     if "central_url" in body:
         url = str(body.get("central_url") or "").strip().rstrip("/")
         if url and not url.startswith("http"):
@@ -4294,12 +4344,12 @@ except Exception as _xhttp_err:
 # ── Plain path XHTTP: only if first segment is a known config path token ──────
 class PlainPathXhttpMiddleware:
     """
-    path ساده مثل /sjdoipod را به هندلر داخلی XHTTP می‌فرستد.
-    در لینک کلاینت فقط /token دیده می‌شود — بدون xhttp-siz10 / stream-up / packet-up.
+    /r/{token}/... و /{token}/... → هندلر داخلی XHTTP
+    مسیر کلاینت خنثی است (بدون نام پروتکل).
     """
 
     _SKIP = frozenset({
-        "api", "login", "dashboard", "health", "stats", "sub", "sub-all", "sub-group",
+        "api", "login", "dashboard", "health", "healthz", "ready", "stats", "sub", "sub-all", "sub-group",
         "ws", "ss", "trojan-ws", "vless-tcp", "xhttp-siz10", "static", "assets", "docs",
         "openapi.json", "p", "proxy", "cf-sub", "domain-sub", "test-ws", "support",
         "cluster", "settings", "customers", "cloudflare", "connections", "traffic",
@@ -4309,12 +4359,11 @@ class PlainPathXhttpMiddleware:
     def __init__(self, app):
         self.app = app
 
-    def _lookup(self, token: str):
+    def _lookup_uid(self, token: str):
         if not token or token in self._SKIP:
-            return None, None, None
+            return None, None
         uid = PATH_INDEX.get(token)
         if not uid:
-            # fallback اسکن (اگر ایندکس عقب بود)
             if token in LINKS:
                 uid = token
             else:
@@ -4323,25 +4372,13 @@ class PlainPathXhttpMiddleware:
                         uid = u
                         break
         if not uid:
-            return None, None, None
+            return None, None
         link = LINKS.get(uid) or {}
         proto = str(link.get("protocol") or "")
         if "xhttp" not in proto:
-            return None, None, None
+            return None, None
         mode = "packet-up" if "packet" in proto else "stream-up"
-        return uid, link, mode
-
-    def _qs(self, scope):
-        from urllib.parse import parse_qs
-        raw = scope.get("query_string") or b""
-        try:
-            q = parse_qs(raw.decode("utf-8", errors="ignore"))
-        except Exception:
-            q = {}
-        def one(k):
-            v = q.get(k) or q.get(k.lower()) or []
-            return v[0] if v else ""
-        return one
+        return uid, mode
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -4355,44 +4392,32 @@ class PlainPathXhttpMiddleware:
         if not parts:
             await self.app(scope, receive, send)
             return
-        token = parts[0]
-        uid, link, mode = self._lookup(token)
+        # پشتیبانی /r/{token}/... و /{token}/...
+        if parts[0] == "r" and len(parts) >= 2:
+            token = parts[1]
+            rest = parts[2:]
+        else:
+            token = parts[0]
+            rest = parts[1:]
+            if token in self._SKIP:
+                await self.app(scope, receive, send)
+                return
+        uid, mode = self._lookup_uid(token)
         if not uid:
             await self.app(scope, receive, send)
             return
-
         method = (scope.get("method") or "GET").upper()
-        one = self._qs(scope)
-        # session از path یا query یا header
-        session_id = None
-        seq = None
-        if len(parts) >= 3 and str(parts[-1]).isdigit():
-            session_id = parts[1]
-            seq = parts[-1]
-        elif len(parts) >= 2:
-            session_id = parts[1]
-            # اگر segment آخر رقم است و mode packet
-            if len(parts) >= 3:
-                seq = parts[2]
-        else:
-            # فقط /token — session از query/header
-            session_id = one("sid") or one("session") or one("s") or "0"
-            seq = one("seq") or None
-
-        if not session_id:
-            session_id = "0"
-
+        session_id = rest[0] if rest else "0"
+        seq = rest[1] if len(rest) >= 2 else None
         if seq is not None and str(seq).isdigit():
             new_path = f"/xhttp-siz10/packet-up/{uid}/{session_id}/{seq}"
         elif method == "GET":
             new_path = f"/xhttp-siz10/{mode}/{uid}/{session_id}"
         else:
-            # POST uplink
-            if mode == "packet-up" and seq is not None:
+            if mode == "packet-up" and seq is not None and str(seq).isdigit():
                 new_path = f"/xhttp-siz10/packet-up/{uid}/{session_id}/{seq}"
             else:
                 new_path = f"/xhttp-siz10/{mode}/{uid}/{session_id}"
-
         scope = dict(scope)
         scope["path"] = new_path
         scope["raw_path"] = new_path.encode("utf-8")
@@ -4420,6 +4445,863 @@ class VlessRootMiddleware:
 
 app.add_middleware(VlessRootMiddleware)
 app.add_middleware(PlainPathXhttpMiddleware)
+
+class SoftHeadersMiddleware:
+    """حذف/خنثی‌سازی هدرهای شناسایی‌کننده."""
+    def __init__(self, app):
+        self.app = app
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                headers = []
+                for k, v in message.get("headers") or []:
+                    lk = k.decode("latin-1").lower() if isinstance(k, bytes) else str(k).lower()
+                    if lk in ("server", "x-powered-by"):
+                        continue
+                    headers.append((k, v))
+                # generic
+                headers.append((b"server", b"cloudflare"))
+                message = {**message, "headers": headers}
+            await send(message)
+        await self.app(scope, receive, send_wrapper)
+
+app.add_middleware(SoftHeadersMiddleware)
+
+
+
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Telegram backup + alerts
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _tg() -> dict:
+    return SETTINGS.setdefault("telegram", {
+        "bot_token": "", "admin_id": "", "backup_every_min": 10,
+        "notify_quota": True, "notify_node_down": True, "enabled": False,
+        "last_backup_at": "", "last_ok": False,
+    })
+
+
+async def telegram_send_message(text: str) -> dict:
+    tg = _tg()
+    token = str(tg.get("bot_token") or "").strip()
+    admin = str(tg.get("admin_id") or "").strip()
+    if not token or not admin:
+        return {"ok": False, "detail": "bot_token یا admin_id خالی است"}
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            r = await client.post(url, json={
+                "chat_id": admin,
+                "text": text[:4000],
+                "disable_web_page_preview": True,
+            })
+            data = r.json() if r.content else {}
+            ok = bool(data.get("ok"))
+            return {"ok": ok, "status": r.status_code, "data": data}
+    except Exception as exc:
+        return {"ok": False, "detail": str(exc)[:200]}
+
+
+async def telegram_send_document(filename: str, content: bytes, caption: str = "") -> dict:
+    tg = _tg()
+    token = str(tg.get("bot_token") or "").strip()
+    admin = str(tg.get("admin_id") or "").strip()
+    if not token or not admin:
+        return {"ok": False, "detail": "bot_token یا admin_id خالی است"}
+    url = f"https://api.telegram.org/bot{token}/sendDocument"
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            files = {"document": (filename, content, "application/json")}
+            data = {"chat_id": admin}
+            if caption:
+                data["caption"] = caption[:1000]
+            r = await client.post(url, data=data, files=files)
+            body = r.json() if r.content else {}
+            return {"ok": bool(body.get("ok")), "status": r.status_code, "data": body}
+    except Exception as exc:
+        return {"ok": False, "detail": str(exc)[:200]}
+
+
+def _build_backup_payload() -> dict:
+    return {
+        "version": get_current_panel_version(),
+        "exported_at": datetime.now().isoformat(),
+        "role": _cluster_role(),
+        "host": get_host(),
+        "links": dict(LINKS),
+        "subs": dict(SUBS),
+        "customers": dict(CUSTOMERS) if "CUSTOMERS" in globals() else {},
+        "settings": {k: v for k, v in SETTINGS.items() if k != "telegram"},
+        "nodes": dict(NODES),
+        "auth_hint": "password_hash preserved — restore carefully",
+        "auth": {"password_hash": AUTH.get("password_hash")},
+    }
+
+
+async def telegram_send_backup(reason: str = "auto") -> dict:
+    import json as _json
+    payload = _build_backup_payload()
+    raw = _json.dumps(payload, ensure_ascii=False, indent=None).encode("utf-8")
+    host = get_host() or "panel"
+    fname = f"backup-{host.replace('/', '_')[:40]}-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
+    caption = f"Backup ({reason})\nrole={_cluster_role()}\nhost={host}\nlinks={len(LINKS)} subs={len(SUBS)}"
+    res = await telegram_send_document(fname, raw, caption=caption)
+    tg = _tg()
+    tg["last_backup_at"] = datetime.now().isoformat()
+    tg["last_ok"] = bool(res.get("ok"))
+    await save_state()
+    return res
+
+
+@app.get("/api/telegram/settings")
+async def api_tg_settings_get(_=Depends(require_auth)):
+    tg = dict(_tg())
+    token = str(tg.get("bot_token") or "")
+    tg["bot_token_set"] = bool(token)
+    tg["bot_token_mask"] = (token[:6] + "…" + token[-4:]) if len(token) > 12 else ("***" if token else "")
+    # never return full token
+    tg.pop("bot_token", None)
+    return tg
+
+
+@app.post("/api/telegram/settings")
+async def api_tg_settings_set(request: Request, _=Depends(require_auth)):
+    body = await request.json()
+    tg = _tg()
+    if "bot_token" in body:
+        val = str(body.get("bot_token") or "").strip()
+        if val and val not in ("***", "unchanged"):
+            tg["bot_token"] = val
+    if "admin_id" in body:
+        tg["admin_id"] = str(body.get("admin_id") or "").strip()
+    if "backup_every_min" in body:
+        try:
+            tg["backup_every_min"] = max(5, min(1440, int(body.get("backup_every_min") or 10)))
+        except Exception:
+            tg["backup_every_min"] = 10
+    for k in ("notify_quota", "notify_node_down", "enabled"):
+        if k in body:
+            tg[k] = bool(body.get(k))
+    await save_state()
+    # تست اتصال هنگام ذخیره اگر توکن و ایدی هست
+    test = {"ok": False, "skipped": True}
+    if tg.get("bot_token") and tg.get("admin_id"):
+        test = await telegram_send_message(
+            f"✅ اتصال تلگرام برقرار شد\nrole={_cluster_role()}\nhost={get_host()}\nبکاپ هر {tg.get('backup_every_min', 10)} دقیقه"
+        )
+        tg["enabled"] = bool(test.get("ok")) if body.get("enabled", True) else False
+        tg["last_ok"] = bool(test.get("ok"))
+        await save_state()
+    return {"ok": True, "telegram": {k: v for k, v in tg.items() if k != "bot_token"}, "test": test}
+
+
+@app.post("/api/telegram/test")
+async def api_tg_test(_=Depends(require_auth)):
+    res = await telegram_send_message(f"🔔 تست پنل\nrole={_cluster_role()}\nhost={get_host()}")
+    return res
+
+
+@app.post("/api/telegram/backup-now")
+async def api_tg_backup_now(_=Depends(require_auth)):
+    return await telegram_send_backup("manual")
+
+
+@app.get("/api/backup/export")
+async def api_backup_export(_=Depends(require_auth)):
+    import json as _json
+    payload = _build_backup_payload()
+    raw = _json.dumps(payload, ensure_ascii=False, indent=2)
+    return Response(
+        content=raw,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="panel-backup-{datetime.now().strftime("%Y%m%d-%H%M")}.json"'},
+    )
+
+
+@app.post("/api/backup/restore")
+async def api_backup_restore(request: Request, _=Depends(require_auth)):
+    """بازیابی از JSON بکاپ (مراقب رمز و نودها باش)."""
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="invalid backup")
+    links = body.get("links") or {}
+    subs = body.get("subs") or {}
+    nodes = body.get("nodes") or {}
+    settings = body.get("settings") or {}
+    auth = body.get("auth") or {}
+    if not isinstance(links, dict) or not isinstance(subs, dict):
+        raise HTTPException(status_code=400, detail="backup missing links/subs")
+    async with LINKS_LOCK:
+        LINKS.clear()
+        LINKS.update(links)
+    async with SUBS_LOCK:
+        SUBS.clear()
+        SUBS.update(subs)
+    async with NODES_LOCK:
+        NODES.clear()
+        NODES.update(nodes if isinstance(nodes, dict) else {})
+    if isinstance(settings, dict):
+        for k, v in settings.items():
+            if k == "telegram":
+                continue
+            SETTINGS[k] = v
+    if auth.get("password_hash"):
+        AUTH["password_hash"] = auth["password_hash"]
+    rebuild_path_index()
+    await save_state()
+    log_activity("backup", "بازیابی بکاپ انجام شد", "ok")
+    return {"ok": True, "links": len(LINKS), "subs": len(SUBS), "nodes": len(NODES)}
+
+
+async def _telegram_backup_loop():
+    await asyncio.sleep(25)
+    while True:
+        try:
+            tg = _tg()
+            every = int(tg.get("backup_every_min") or 10)
+            every = max(5, min(1440, every))
+            if tg.get("enabled") and tg.get("bot_token") and tg.get("admin_id"):
+                # فقط مرکزی یا standalone — نود معمولاً بکاپ سبک می‌فرستد
+                if _cluster_role() in ("central", "standalone"):
+                    await telegram_send_backup("auto")
+            await asyncio.sleep(every * 60)
+        except Exception as exc:
+            logger.debug("tg backup loop: %s", exc)
+            await asyncio.sleep(120)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Node health + sub failover
+# ══════════════════════════════════════════════════════════════════════════════
+
+async def _node_health_loop():
+    await asyncio.sleep(20)
+    while True:
+        try:
+            if _cluster_role() == "central":
+                nh = SETTINGS.get("node_health") or {}
+                interval = int(nh.get("interval_sec") or 120)
+                async with NODES_LOCK:
+                    items = [(nid, n.get("host") or "") for nid, n in NODES.items()]
+                down_names = []
+                for nid, host in items:
+                    res = await _measure_node_ping(host)
+                    async with NODES_LOCK:
+                        if nid in NODES:
+                            prev_ok = NODES[nid].get("last_ping_ok")
+                            fails = int(NODES[nid].get("fail_count") or 0)
+                            if res.get("ok"):
+                                NODES[nid]["fail_count"] = 0
+                                NODES[nid]["online"] = True
+                            else:
+                                fails += 1
+                                NODES[nid]["fail_count"] = fails
+                                NODES[nid]["online"] = fails < int(nh.get("fail_threshold") or 2)
+                                if fails >= int(nh.get("fail_threshold") or 2):
+                                    down_names.append(NODES[nid].get("name") or nid)
+                            NODES[nid]["last_ping_ms"] = res.get("ms")
+                            NODES[nid]["last_ping_ok"] = bool(res.get("ok"))
+                            NODES[nid]["last_ping_at"] = datetime.now().isoformat()
+                            if prev_ok and not res.get("ok") and fails >= int(nh.get("fail_threshold") or 2):
+                                pass
+                tg = _tg()
+                if down_names and tg.get("enabled") and tg.get("notify_node_down"):
+                    await telegram_send_message("⚠️ نودهای آفلاین:\n" + "\n".join(f"• {x}" for x in down_names[:20]))
+                await asyncio.sleep(max(60, interval))
+            else:
+                await asyncio.sleep(90)
+        except Exception as exc:
+            logger.debug("node health loop: %s", exc)
+            await asyncio.sleep(90)
+
+
+def _node_is_online(node: dict) -> bool:
+    if node.get("online") is False:
+        return False
+    if node.get("last_ping_ok") is False and int(node.get("fail_count") or 0) >= 2:
+        return False
+    return True
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Emergency controls (node + central kill)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.post("/api/emergency/disable-all-local")
+async def api_emergency_disable_all(_=Depends(require_auth)):
+    """روی نود یا مرکزی: همه کانفیگ‌های محلی را غیرفعال می‌کند."""
+    n = 0
+    async with LINKS_LOCK:
+        for link in LINKS.values():
+            if link.get("active", True):
+                link["active"] = False
+                n += 1
+    await save_state()
+    log_activity("emergency", f"غیرفعال‌سازی اضطراری {n} کانفیگ محلی", "err")
+    return {"ok": True, "disabled": n}
+
+
+@app.post("/api/emergency/enable-all-local")
+async def api_emergency_enable_all(_=Depends(require_auth)):
+    n = 0
+    async with LINKS_LOCK:
+        for link in LINKS.values():
+            if not link.get("active", True):
+                link["active"] = True
+                n += 1
+    await save_state()
+    return {"ok": True, "enabled": n}
+
+
+@app.post("/api/emergency/disconnect-central")
+async def api_emergency_disconnect_central(_=Depends(require_auth)):
+    """روی نود: قطع ارتباط با مرکزی (دیگر sync/usage نمی‌فرستد)."""
+    if _cluster_role() != "node":
+        raise HTTPException(status_code=400, detail="فقط روی نود")
+    c = _cluster()
+    c["auto_sync"] = False
+    c["central_url"] = ""
+    # نگه داشتن token برای reconnect دستی
+    await save_state()
+    log_activity("cluster", "نود از مرکزی جدا شد (اضطراری)", "err")
+    return {"ok": True}
+
+
+@app.post("/api/cluster/control/kill-node")
+async def api_cluster_kill_node(request: Request, _=Depends(require_auth)):
+    """مرکزی → یک نود: disable_all روی همه کانفیگ‌های آن نود."""
+    if _cluster_role() != "central":
+        raise HTTPException(status_code=400, detail="فقط مرکزی")
+    body = await request.json()
+    node_id = str(body.get("node_id") or "")
+    if not node_id:
+        raise HTTPException(status_code=400, detail="node_id لازم است")
+    ok = await _send_node_control(node_id, [], "disable_all", True)
+    return {"ok": ok}
+
+
+# extend control handler for disable_all / enable_all
+
+
+@app.post("/api/links/import")
+async def api_links_import(request: Request, _=Depends(require_auth)):
+    """چسباندن چند URI (vless/trojan/ss) و ساخت کانفیگ محلی ساده."""
+    body = await request.json()
+    text = str(body.get("text") or body.get("uris") or "")
+    sub_id = body.get("sub_id")
+    lines = [ln.strip() for ln in text.replace(",", "\n").splitlines() if ln.strip()]
+    created = []
+    for ln in lines:
+        if not (ln.startswith("vless://") or ln.startswith("trojan://") or ln.startswith("ss://")):
+            continue
+        try:
+            from urllib.parse import urlparse, parse_qs, unquote
+            proto = "vless-ws"
+            label = "imported"
+            path = secrets.token_urlsafe(8)
+            if ln.startswith("vless://"):
+                u = urlparse(ln)
+                qs = parse_qs(u.query)
+                typ = (qs.get("type") or ["ws"])[0]
+                mode = (qs.get("mode") or [""])[0]
+                if typ == "xhttp" or typ == "httpupgrade":
+                    proto = f"xhttp-{mode}" if mode else "xhttp-stream-up"
+                    if proto not in PROTOCOLS:
+                        proto = "xhttp-stream-up"
+                elif typ == "ws":
+                    proto = "vless-ws"
+                frag = unquote(u.fragment or "")
+                if frag:
+                    label = frag[:40]
+                pth = (qs.get("path") or ["/"])[0]
+                if pth and pth not in ("/",):
+                    path = pth.strip("/").split("/")[-1][:32] or path
+            elif ln.startswith("trojan://"):
+                proto = "trojan-ws"
+                u = urlparse(ln)
+                frag = unquote(u.fragment or "")
+                if frag:
+                    label = frag[:40]
+            else:
+                proto = "shadowsocks-tls"
+            uid = str(__import__("uuid").uuid4())
+            path = await unique_config_path(path, uid[:8])
+            link = {
+                "label": label,
+                "path": path,
+                "protocol": proto,
+                "active": True,
+                "used_bytes": 0,
+                "limit_bytes": 0,
+                "created_at": datetime.now().isoformat(),
+                "note": "imported",
+                "sub_id": sub_id,
+            }
+            async with LINKS_LOCK:
+                LINKS[uid] = link
+            if sub_id:
+                async with SUBS_LOCK:
+                    if sub_id in SUBS:
+                        ids = SUBS[sub_id].setdefault("link_ids", [])
+                        if uid not in ids:
+                            ids.append(uid)
+            created.append({"uuid": uid, "label": label, "protocol": proto})
+        except Exception as exc:
+            logger.debug("import line fail: %s", exc)
+    if created:
+        rebuild_path_index()
+        await save_state()
+    return {"ok": True, "created": created, "count": len(created)}
+
+
+@app.get("/api/templates/isp")
+async def api_isp_templates(_=Depends(require_auth)):
+    profiles = (SETTINGS.get("protocol_profiles") or {}).copy()
+    defaults = {
+        "general": ["trojan-ws", "vless-ws", "xhttp-stream-up"],
+        "mobile": ["trojan-ws", "vless-ws", "shadowsocks-tls"],
+        "mci": ["trojan-ws", "vless-ws"],
+        "irancell": ["vless-ws", "trojan-ws", "xhttp-stream-up"],
+        "wifi": ["xhttp-stream-up", "trojan-ws", "vless-ws"],
+    }
+    for k, v in defaults.items():
+        profiles.setdefault(k, v)
+    return {"templates": profiles}
+
+
+@app.post("/api/templates/isp/apply")
+async def api_isp_apply(request: Request, _=Depends(require_auth)):
+    """برای یک ساب، فقط پروتکل‌های قالب ISP را در ساب نگه می‌دارد / اولویت می‌دهد."""
+    body = await request.json()
+    sub_id = str(body.get("sub_id") or "")
+    template = str(body.get("template") or "general")
+    profiles = SETTINGS.get("protocol_profiles") or {}
+    wanted = list(profiles.get(template) or [])
+    if not wanted:
+        raise HTTPException(status_code=400, detail="template empty")
+    async with SUBS_LOCK:
+        if sub_id not in SUBS:
+            raise HTTPException(status_code=404, detail="sub not found")
+        SUBS[sub_id]["isp_template"] = template
+        SUBS[sub_id]["preferred_protocols"] = wanted
+    await save_state()
+    return {"ok": True, "template": template, "protocols": wanted}
+
+
+def is_remote_link_eligible(link_id: str) -> bool:
+    """برای ساب: اگر نود آفلاین است و sub_skip_offline فعال، رد کن."""
+    nh = SETTINGS.get("node_health") or {}
+    if not nh.get("sub_skip_offline", True):
+        return True
+    raw = str(link_id or "")
+    if not raw.startswith("remote:"):
+        return True
+    parts = raw.split(":", 2)
+    if len(parts) < 2:
+        return True
+    node = NODES.get(parts[1]) or {}
+    return _node_is_online(node)
+
+
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# v4.8 — dual central, device limit, emergency token, quota TG, wizard helpers
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _central_urls() -> list[str]:
+    c = _cluster()
+    urls = []
+    for k in ("central_url", "central_url_secondary"):
+        u = str(c.get(k) or "").strip().rstrip("/")
+        if not u:
+            continue
+        if not u.startswith("http"):
+            u = "https://" + u
+        if u not in urls:
+            urls.append(u)
+    return urls
+
+
+async def report_usage_to_central_multi(uuid: str, n_bytes: int) -> None:
+    """گزارش مصرف به مرکزی؛ اگر اولی fail شد secondary را امتحان می‌کند."""
+    if n_bytes <= 0 or _cluster_role() != "node":
+        return
+    c = _cluster()
+    token = str(c.get("node_token") or "").strip()
+    if not token:
+        return
+    urls = _central_urls()
+    if not urls:
+        return
+    last_exc = None
+    for central in urls:
+        try:
+            async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
+                r = await client.post(
+                    f"{central}/api/cluster/usage",
+                    headers={"X-Node-Token": token, "Authorization": f"Bearer {token}"},
+                    json={"uuid": uuid, "source_id": uuid, "bytes": int(n_bytes)},
+                )
+            if r.status_code >= 400:
+                last_exc = f"status {r.status_code}"
+                continue
+            data = r.json() if r.content else {}
+            if data.get("allowed") is False:
+                async with LINKS_LOCK:
+                    if uuid in LINKS:
+                        LINKS[uuid]["central_quota_exceeded"] = True
+                await save_state()
+            elif data.get("allowed") is True:
+                async with LINKS_LOCK:
+                    if uuid in LINKS and LINKS[uuid].get("central_quota_exceeded"):
+                        LINKS[uuid]["central_quota_exceeded"] = False
+            return
+        except Exception as exc:
+            last_exc = str(exc)
+            continue
+    logger.debug("report_usage multi failed: %s", last_exc)
+
+
+# monkey-patch alias: prefer multi if original exists
+try:
+    report_usage_to_central = report_usage_to_central_multi  # type: ignore
+except Exception:
+    pass
+
+
+def _sub_max_devices(sub: dict | None) -> int:
+    if not sub:
+        return 0
+    try:
+        return max(0, int(sub.get("max_devices") or 0))
+    except Exception:
+        return 0
+
+
+def register_device_conn(sub_id: str | None, conn_key: str) -> bool:
+    """True اگر زیر سقف دستگاه باشد یا سقف 0 (نامحدود)."""
+    if not sub_id:
+        return True
+    sub = SUBS.get(sub_id)
+    limit = _sub_max_devices(sub)
+    if limit <= 0:
+        return True
+    s = DEVICE_CONN_INDEX.setdefault(sub_id, set())
+    if conn_key in s:
+        return True
+    if len(s) >= limit:
+        return False
+    s.add(conn_key)
+    return True
+
+
+def unregister_device_conn(sub_id: str | None, conn_key: str) -> None:
+    if not sub_id:
+        return
+    s = DEVICE_CONN_INDEX.get(sub_id)
+    if not s:
+        return
+    s.discard(conn_key)
+    if not s:
+        DEVICE_CONN_INDEX.pop(sub_id, None)
+
+
+@app.patch("/api/subs/{sub_id}/meta")
+async def api_sub_meta(sub_id: str, request: Request, _=Depends(require_auth)):
+    body = await request.json()
+    async with SUBS_LOCK:
+        if sub_id not in SUBS:
+            raise HTTPException(status_code=404, detail="sub not found")
+        s = SUBS[sub_id]
+        if "max_devices" in body:
+            try:
+                s["max_devices"] = max(0, int(body.get("max_devices") or 0))
+            except Exception:
+                pass
+        if "tags" in body:
+            tags = body.get("tags")
+            if isinstance(tags, str):
+                tags = [x.strip() for x in tags.split(",") if x.strip()]
+            s["tags"] = list(tags or [])[:20]
+        if "notes" in body:
+            s["notes"] = str(body.get("notes") or "")[:500]
+        if "preferred_protocols" in body:
+            s["preferred_protocols"] = [str(x) for x in (body.get("preferred_protocols") or [])][:20]
+    await save_state()
+    return {"ok": True, "sub": SUBS.get(sub_id)}
+
+
+# ── Emergency public token (no login) ──
+def _emergency() -> dict:
+    return SETTINGS.setdefault("emergency", {
+        "path": "",
+        "token": "",
+        "created_at": "",
+    })
+
+
+@app.post("/api/emergency/public-token")
+async def api_emergency_public_token(_=Depends(require_auth)):
+    """ساخت path+token یکبارمصرف برای قطع اضطراری بدون لاگین."""
+    path = secrets.token_urlsafe(12)
+    token = secrets.token_urlsafe(24)
+    em = _emergency()
+    em["path"] = path
+    em["token"] = token
+    em["created_at"] = datetime.now().isoformat()
+    await save_state()
+    host = get_host()
+    url = f"https://{host}/e/{path}?t={token}" if host else f"/e/{path}?t={token}"
+    return {"ok": True, "path": path, "token": token, "url": url}
+
+
+@app.post("/e/{path}")
+@app.get("/e/{path}")
+async def emergency_public_kill(path: str, request: Request):
+    """بدون لاگین: اگر path و token درست باشد همه کانفیگ‌های محلی را قطع می‌کند."""
+    em = _emergency()
+    if not em.get("path") or path != em.get("path"):
+        raise HTTPException(status_code=404, detail="not found")
+    tkn = request.query_params.get("t") or request.headers.get("x-emergency-token") or ""
+    if not tkn or tkn != em.get("token"):
+        raise HTTPException(status_code=404, detail="not found")
+    n = 0
+    async with LINKS_LOCK:
+        for link in LINKS.values():
+            if link.get("active", True):
+                link["active"] = False
+                n += 1
+    # invalidate token after use (one-time)
+    em["token"] = ""
+    em["path"] = ""
+    await save_state()
+    log_activity("emergency", f"قطع اضطراری عمومی: {n} کانفیگ", "err")
+    try:
+        if _tg().get("enabled"):
+            await telegram_send_message(f"🚨 قطع اضطراری عمومی\nhost={get_host()}\ndisabled={n}")
+    except Exception:
+        pass
+    return {"ok": True, "disabled": n, "message": "all local configs disabled"}
+
+
+@app.post("/api/cluster/nodes/{node_id}/kill")
+async def api_node_kill(node_id: str, _=Depends(require_auth)):
+    if _cluster_role() != "central":
+        raise HTTPException(status_code=400, detail="فقط مرکزی")
+    ok = await _send_node_control(node_id, [], "disable_all", True)
+    try:
+        if _tg().get("enabled"):
+            await telegram_send_message(f"🛑 Kill نود از مرکزی\nnode={node_id}\nok={ok}")
+    except Exception:
+        pass
+    return {"ok": ok, "node_id": node_id}
+
+
+# ── Protocol priority when collecting sub lines ──
+_ORIG_COLLECT = None
+
+def _sort_lines_by_protocol_pref(lines: list[str], preferred: list[str]) -> list[str]:
+    if not preferred or not lines:
+        return lines
+    def score(uri: str) -> int:
+        u = uri.lower()
+        for i, p in enumerate(preferred):
+            p = p.lower()
+            if "xhttp" in p and "xhttp" in u:
+                return i
+            if "trojan" in p and u.startswith("trojan://"):
+                return i
+            if "vless" in p and u.startswith("vless://"):
+                return i
+            if "shadow" in p and u.startswith("ss://"):
+                return i
+        return 100
+    return sorted(lines, key=score)
+
+
+# wrap collect after definition - patch at runtime in startup
+async def _quota_notify_loop():
+    await asyncio.sleep(40)
+    while True:
+        try:
+            tg = _tg()
+            if tg.get("enabled") and tg.get("notify_quota", True) and _cluster_role() in ("central", "standalone"):
+                async with SUBS_LOCK:
+                    items = list(SUBS.items())
+                for sid, s in items:
+                    lim = 0
+                    try:
+                        lim = int(s.get("limit_bytes") or 0)
+                    except Exception:
+                        lim = 0
+                    used = int(s.get("used_bytes") or 0)
+                    if lim > 0:
+                        pct = used / lim * 100
+                        flags = s.setdefault("_notify_flags", {})
+                        if pct >= 100 and not flags.get("100"):
+                            flags["100"] = True
+                            await telegram_send_message(f"🔴 سهمیه تمام شد\nsub={s.get('name') or sid}")
+                        elif pct >= 90 and not flags.get("90"):
+                            flags["90"] = True
+                            await telegram_send_message(f"🟠 سهمیه ۹۰٪\nsub={s.get('name') or sid}\n{pct:.0f}%")
+                        elif pct >= 70 and not flags.get("70"):
+                            flags["70"] = True
+                            await telegram_send_message(f"🟡 سهمیه ۷۰٪\nsub={s.get('name') or sid}\n{pct:.0f}%")
+                    # expiry
+                    exp = s.get("expires_at") or s.get("expire_at")
+                    if exp:
+                        try:
+                            from datetime import datetime as _dt
+                            if isinstance(exp, (int, float)):
+                                exp_dt = _dt.fromtimestamp(exp)
+                            else:
+                                exp_dt = _dt.fromisoformat(str(exp).replace("Z", ""))
+                            days = (exp_dt - _dt.now()).days
+                            flags = s.setdefault("_notify_flags", {})
+                            if days <= 0 and not flags.get("exp0"):
+                                flags["exp0"] = True
+                                await telegram_send_message(f"🔴 انقضای اشتراک\nsub={s.get('name') or sid}")
+                            elif days <= 3 and not flags.get("exp3"):
+                                flags["exp3"] = True
+                                await telegram_send_message(f"🟠 انقضا تا {days} روز\nsub={s.get('name') or sid}")
+                        except Exception:
+                            pass
+            await asyncio.sleep(600)
+        except Exception as exc:
+            logger.debug("quota notify: %s", exc)
+            await asyncio.sleep(300)
+
+
+async def _central_watchdog_loop():
+    """روی نود: اگر مرکزی ۲۴ساعت جواب ندهد به تلگرام خبر بده."""
+    await asyncio.sleep(60)
+    while True:
+        try:
+            if _cluster_role() == "node":
+                c = _cluster()
+                token = str(c.get("node_token") or "")
+                urls = _central_urls()
+                ok_any = False
+                for central in urls:
+                    try:
+                        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                            r = await client.get(f"{central}/health")
+                            if r.status_code < 500:
+                                ok_any = True
+                                c["last_central_ok_at"] = datetime.now().isoformat()
+                                break
+                    except Exception:
+                        continue
+                if not ok_any and urls:
+                    last = c.get("last_central_ok_at")
+                    stale = True
+                    if last:
+                        try:
+                            last_dt = datetime.fromisoformat(str(last))
+                            stale = (datetime.now() - last_dt).total_seconds() > 86400
+                        except Exception:
+                            stale = True
+                    else:
+                        # first fail — set timestamp and wait
+                        c["last_central_ok_at"] = datetime.now().isoformat()
+                        stale = False
+                    if stale and not c.get("_central_down_notified"):
+                        c["_central_down_notified"] = True
+                        await save_state()
+                        # local telegram might not be configured on node; try anyway
+                        await telegram_send_message(
+                            f"⚠️ مرکزی بیش از ۲۴ ساعت در دسترس نیست\nnode={c.get('node_name')}\nhost={get_host()}"
+                        )
+                elif ok_any:
+                    c["_central_down_notified"] = False
+            await asyncio.sleep(3600)
+        except Exception as exc:
+            logger.debug("central watchdog: %s", exc)
+            await asyncio.sleep(1800)
+
+
+# ── Rate limit new tunnel connections ──
+_CONN_RATE: dict = {}
+_CONN_RATE_WINDOW = 10.0
+_CONN_RATE_MAX = 40  # per IP per window
+
+
+def allow_new_connection(ip: str) -> bool:
+    import time as _time
+    now = _time.time()
+    bucket = _CONN_RATE.setdefault(ip or "unknown", [])
+    bucket[:] = [t for t in bucket if now - t < _CONN_RATE_WINDOW]
+    if len(bucket) >= _CONN_RATE_MAX:
+        return False
+    bucket.append(now)
+    return True
+
+
+@app.get("/api/cluster/wizard-status")
+async def api_wizard_status(_=Depends(require_auth)):
+    """وضعیت برای ویزارد بازیابی بعد از بن."""
+    c = _cluster()
+    tg = _tg()
+    async with NODES_LOCK:
+        nodes = len(NODES)
+        online = sum(1 for n in NODES.values() if n.get("last_ping_ok"))
+    return {
+        "role": _cluster_role(),
+        "has_secret": bool(c.get("cluster_secret")),
+        "nodes": nodes,
+        "online": online,
+        "telegram_ok": bool(tg.get("last_ok")),
+        "telegram_enabled": bool(tg.get("enabled")),
+        "links": len(LINKS),
+        "subs": len(SUBS),
+        "steps": [
+            {"id": "restore", "title": "بازیابی بکاپ JSON", "done": len(SUBS) > 0 or len(LINKS) > 0},
+            {"id": "secret", "title": "ساخت Cluster Secret", "done": bool(c.get("cluster_secret"))},
+            {"id": "telegram", "title": "اتصال تلگرام", "done": bool(tg.get("enabled") and tg.get("last_ok"))},
+            {"id": "nodes", "title": "اتصال مجدد نودها", "done": nodes > 0},
+        ],
+    }
+
+
+@app.post("/api/backup/restore-upload")
+async def api_backup_restore_upload(request: Request, _=Depends(require_auth)):
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="invalid backup")
+    # reuse logic
+    links = body.get("links") or {}
+    subs = body.get("subs") or {}
+    nodes = body.get("nodes") or {}
+    settings = body.get("settings") or {}
+    auth = body.get("auth") or {}
+    if not isinstance(links, dict) or not isinstance(subs, dict):
+        raise HTTPException(status_code=400, detail="backup missing links/subs")
+    async with LINKS_LOCK:
+        LINKS.clear()
+        LINKS.update(links)
+    async with SUBS_LOCK:
+        SUBS.clear()
+        SUBS.update(subs)
+    async with NODES_LOCK:
+        NODES.clear()
+        NODES.update(nodes if isinstance(nodes, dict) else {})
+    if isinstance(settings, dict):
+        for k, v in settings.items():
+            if k == "telegram":
+                continue
+            SETTINGS[k] = v
+    if auth.get("password_hash"):
+        AUTH["password_hash"] = auth["password_hash"]
+    rebuild_path_index()
+    await save_state()
+    log_activity("backup", "بازیابی بکاپ از آپلود", "ok")
+    return {"ok": True, "links": len(LINKS), "subs": len(SUBS), "nodes": len(NODES)}
 
 
 if __name__ == "__main__":
